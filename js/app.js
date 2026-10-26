@@ -9,7 +9,7 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const t = (k, v) => MF.t(S.lang, k, v);
   const fname = f => (f ? (S.lang === 'en' ? f.en || f.pt : f.pt) : '?');
-  const allFoods = () => MF.FOODS.concat(S.customFoods);
+  const allFoods = () => MF.FOODS.concat(S.customFoods, S.sharedFoods || []);
   const fmap = () => Object.fromEntries(allFoods().map(f => [f.id, f]));
   const available = () => allFoods().filter(f => S.foods[f.id]?.like && S.foods[f.id]?.buy);
   const targets = () => MF.computeTargets(S.profile);
@@ -107,6 +107,10 @@
         <p class="small">${t('deleteWarn')}</p>
         <button class="btn small danger-btn" data-act="deleteAccount">${t('deleteAccountBtn')}</button></details></section>`;
   }
+  async function hasLocalData() {
+    if ((S.weights || []).length || (S.customFoods || []).length || S.plan || Object.keys(S.foods || {}).length) return true;
+    return (await MF.photos.all().catch(() => [])).length > 0;
+  }
   // Limpa os dados DESTE aparelho (a conta na nuvem não é tocada)
   async function wipeLocal() {
     const keep = { lang: S.lang, theme: S.theme, tab: S.tab };
@@ -123,15 +127,18 @@
   if (SY()) {
     MF.sync.attach(() => S);
     MF.sync.onRemote = async (state, ts) => {
-      const keep = { ui: S.ui, tab: S.tab, dayIdx: S.dayIdx };
+      const keep = { ui: S.ui, tab: S.tab, dayIdx: S.dayIdx, ownerId: S.ownerId };
       S = MF.store.replace({ ...state, ...keep });
       MF.store.adopt(S, ts);
       render(); toast(t('syncPulled'));
     };
     MF.sync.onPhotos = () => { if (S.tab === 'progress') renderPhotos(); };
     // Aparelho partilhado: dados de outra conta nunca passam para esta.
+    MF.sync.onShared = setShared;
+    MF.sync.onSignedOut = async ({ pending }) => { if (!pending) { S.ownerId = null; await wipeLocal(); } };
     MF.sync.onUser = async user => {
-      if (S.ownerId && S.ownerId !== user.id) await wipeLocal();
+      if (S.ownerId && S.ownerId !== user.id) await wipeLocal();          // dados de outra conta: nunca passam
+      else if (!S.ownerId && await hasLocalData() && !confirm(t('adoptLocal'))) await wipeLocal(); // sem dono: só com o teu sim
       S.ownerId = user.id; MF.store.save(S);
     };
     MF.sync.on(refreshSyncUI);
@@ -327,6 +334,40 @@
     food.por = food.unit ? food.unit.g : (L.serving || ({ veg: 150, fruit: 120, fat: 15 }[food.cat] || 100));
     return food;
   }
+  const SHARED_PREFIX = 'sh_';
+  const sharedToFood = r => ({ id: SHARED_PREFIX + r.id, sid: r.id, pt: r.name, en: r.name, cat: r.cat, k: +r.k, p: +r.p, c: +r.c, f: +r.f,
+    fb: +r.fb || 0, m: r.m || 'BMS', unit: r.unit || undefined, meas: r.meas || undefined, por: r.por ? +r.por : undefined,
+    shared: true, mine: !!(MF.sync && MF.sync.user && r.created_by === MF.sync.user.id), source: r.source });
+  const foodToRow = (f, source) => {
+    const row = { name: f.pt.trim(), cat: f.cat, k: Math.round(f.k), p: +f.p, c: +f.c, f: +f.f, fb: +f.fb || 0, m: f.m || 'BMS', source };
+    if (f.unit) row.unit = f.unit; if (f.meas) row.meas = f.meas; if (f.por) row.por = f.por;
+    return row;
+  };
+  function setShared(rows) {
+    S.sharedFoods = (rows || []).map(sharedToFood);
+    save(); if (S.tab === 'foods') { const fl = $('#foodlist'); if (fl) fl.innerHTML = foodList(); }
+  }
+  // Guardar um alimento: com sessão vai para o catálogo da comunidade; sem sessão (ou se falhar) fica só teu.
+  async function saveFood(food, source) {
+    const sy = MF.sync;
+    if (sy && sy.available && sy.user && navigator.onLine) {
+      try {
+        let res;
+        if (food.sid) res = { row: await sy.updateShared(food.sid, foodToRow(food, source)), created: false, updated: true };
+        else res = await sy.publishFood(foodToRow(food, source));
+        const sf = sharedToFood(res.row);
+        S.sharedFoods = (S.sharedFoods || []).filter(x => x.id !== sf.id).concat(sf);
+        S.customFoods = S.customFoods.filter(x => x.id !== food.id); // se era privado, passa a ser da comunidade
+        if (!S.foods[sf.id]) S.pendingNew = (S.pendingNew || 0) + 1;
+        S.foods[sf.id] = { like: true, buy: true };
+        save();
+        if (!res.created && !res.updated) toast(t('sharedExisted'));
+        return sf;
+      } catch (e) { toast(t('sharedFailed')); }
+    }
+    upsertCustom(food);
+    return food;
+  }
   function upsertCustom(food) {
     const i = S.customFoods.findIndex(x => x.id === food.id);
     if (i >= 0) S.customFoods[i] = food;
@@ -353,8 +394,7 @@
     // Leitura limpa (todos os macros, kcal coerentes com os macros, nome lido): guarda logo. Senão, revisão.
     const clean = (res.flags || []).every(fl => fl === 'fromServing');
     if (clean) {
-      const food = foodFromLabel(res.food);
-      upsertCustom(food);
+      const food = await saveFood(foodFromLabel(res.food), 'label');
       setLabel({ status: 'done', savedId: food.id, food: res.food });
       updateAvail(); const fl = $('#foodlist'); if (fl) fl.innerHTML = foodList();
     } else setLabel({ status: 'review', food: res.food, flags: res.flags });
@@ -369,12 +409,13 @@
       const st = S.foods[f.id] || {};
       return `<div class="food ${st.like && st.buy ? 'avail' : ''}">
         <span class="fthumb" style="background-image:url(${IMG.cat(f.cat)})"></span>
-        <div class="fmain"><b>${esc(fname(f))}</b>${f.custom ? ` <span class="tag">${t('custom')}</span>` : ''}
+        <div class="fmain"><b>${esc(fname(f))}</b>${f.custom ? ` <span class="tag">${t('custom')}</span>` : ''}${f.shared ? ` <span class="tag shared">${f.mine ? t('sharedMine') : t('sharedTag')}</span>` : ''}
           <small class="muted">${n(f.k)} kcal · ${t('pS')} ${n(f.p, 1)} · ${t('cS')} ${n(f.c, 1)} · ${t('fS')} ${n(f.f, 1)} <span class="dim">/ 100 g</span></small></div>
         <div class="ftog">
           <button class="tog like ${st.like ? 'on' : ''}" data-act="like" data-id="${f.id}">${t('like')}</button>
           <button class="tog buy ${st.buy ? 'on' : ''}" data-act="buy" data-id="${f.id}">${t('buy')}</button>
           ${f.custom ? `<button class="icon small" data-act="delCustom" data-id="${f.id}" title="${t('del')}">${ICON.x}</button>` : ''}
+          ${f.shared && f.mine ? `<button class="icon small" data-act="delShared" data-id="${f.id}" title="${t('del')}">${ICON.x}</button>` : ''}
         </div></div>`;
     }).join('')}</div>`).join('');
   }
@@ -676,7 +717,7 @@
     try {
       const data = JSON.parse(await file.text());
       if (data.app !== 'macroforge' || !data.state) throw new Error('bad');
-      S = MF.store.replace(data.state); save();
+      S = MF.store.replace({ ...data.state, ownerId: S.ownerId }); save();
       await MF.photos.clear();
       for (const p of data.photos || []) await MF.photos.put({ id: p.id, date: p.date, pose: p.pose, blob: await (await fetch(p.data)).blob() });
       render(); toast(t('importOk'));
@@ -709,6 +750,13 @@
       case 'basics': MF.BASICS.forEach(i => { setFood(i, 'like', true); setFood(i, 'buy', true); }); break;
       case 'allBuy': Object.values(S.foods).forEach(st => { if (st.like) st.buy = true; }); break;
       case 'clearSel': S.foods = {}; break;
+      case 'delShared': {
+        const f0 = fmap()[id];
+        if (!f0 || !f0.mine || !confirm(t('confirmDelShared'))) return;
+        MF.sync.deleteShared(f0.sid).then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView(); })
+          .catch(() => toast(t('sharedFailed')));
+        return;
+      }
       case 'delCustom':
         if (!confirm(t('confirmDel'))) return;
         S.customFoods = S.customFoods.filter(f => f.id !== id); delete S.foods[id]; break;
@@ -760,7 +808,11 @@
         setLabel({ status: 'review', flags: [], food: { name: f.pt, cat: f.cat, k: f.k, p: f.p, c: f.c, f: f.f, fb: f.fb, m: f.m, unit: f.unit, meas: f.meas, serving: f.por, editId: f.id } });
         return;
       }
-      case 'labelUndo':
+      case 'labelUndo': {
+        const f0 = fmap()[LS.savedId];
+        if (f0 && f0.shared && f0.mine && MF.sync.user) MF.sync.deleteShared(f0.sid).catch(() => {});
+        S.sharedFoods = (S.sharedFoods || []).filter(f => f.id !== LS.savedId);
+      }
         S.customFoods = S.customFoods.filter(f => f.id !== LS.savedId); delete S.foods[LS.savedId];
         S.pendingNew = Math.max(0, (S.pendingNew || 0) - 1); LS = { status: 'idle' }; break;
       default: return;
@@ -861,10 +913,15 @@
       save(); rerenderView(); return;
     }
     if (e.target.id === 'customForm' || e.target.id === 'labelForm') {
-      const food = foodFromForm(fd);
-      upsertCustom(food);
-      if (e.target.id === 'labelForm') LS = { status: 'done', savedId: food.id, food: LS.food };
-      rerenderView();
+      const draft = foodFromForm(fd);
+      const old = fmap()[draft.id];
+      if (old && old.shared && old.mine) draft.sid = old.sid;
+      else if (old && old.shared) draft.id = 'c_' + Date.now().toString(36); // alimento de outra pessoa: a correção fica uma cópia só tua
+      const isLabel = e.target.id === 'labelForm';
+      saveFood(draft, isLabel ? 'label' : 'manual').then(food => {
+        if (isLabel) LS = { status: 'done', savedId: food.id, food: LS.food };
+        rerenderView();
+      });
     }
   });
 

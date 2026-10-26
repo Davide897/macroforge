@@ -46,6 +46,7 @@
         sync.ready = true; await push(true);
       }
       sync.ready = true;
+      if (sync.onShared) await sync.fetchShared().then(sync.onShared).catch(() => {});
       await syncPhotos();
       sync.lastSync = Date.now(); set('status', 'ok'); set('error', null);
     } catch (e) {
@@ -112,6 +113,31 @@
   sync.photoAdded = rec => { const s = getState && getState(); if (!s) return; s.photoMeta = (s.photoMeta || []).filter(p => p.id !== rec.id).concat({ id: rec.id, date: rec.date, pose: rec.pose }); MF.store.save(s); if (sync.user) syncPhotos().catch(() => {}); };
   sync.photoDeleted = id => { const s = getState && getState(); if (!s) return; s.photoDeleted = { ...(s.photoDeleted || {}), [id]: Date.now() }; s.photoMeta = (s.photoMeta || []).filter(p => p.id !== id); MF.store.save(s); if (sync.user) syncPhotos().catch(() => {}); };
 
+  // ---------- catálogo de alimentos da comunidade ----------
+  const COLS = 'id, created_by, name, cat, k, p, c, f, fb, m, unit, meas, por, source';
+  sync.fetchShared = async () => {
+    if (!sync.user) return null;
+    const { data, error } = await sb.from('shared_foods').select(COLS).order('name').limit(5000);
+    if (error) throw error;
+    return data;
+  };
+  // Publica um alimento. Se o nome já existir na comunidade, devolve o existente (sem duplicar).
+  sync.publishFood = async row => {
+    const { data, error } = await sb.from('shared_foods').insert({ ...row, created_by: sync.user.id }).select(COLS).single();
+    if (!error) return { row: data, created: true };
+    if (error.code === '23505') {
+      const { data: ex } = await sb.from('shared_foods').select(COLS).ilike('name', row.name.trim()).limit(1).maybeSingle();
+      if (ex) return { row: ex, created: false };
+    }
+    throw error;
+  };
+  sync.updateShared = async (id, row) => {
+    const { data, error } = await sb.from('shared_foods').update(row).eq('id', id).select(COLS).single();
+    if (error) throw error;
+    return data;
+  };
+  sync.deleteShared = async id => { const { error } = await sb.from('shared_foods').delete().eq('id', id); if (error) throw error; };
+
   // ---------- leitura de rótulos pela função na nuvem ----------
   sync.readLabel = async dataUrl => {
     const { data, error } = await sb.functions.invoke('label', { body: { image: dataUrl } });
@@ -132,11 +158,20 @@
   sb.auth.onAuthStateChange((event, session) => {
     const was = sync.user && sync.user.id;
     sync.user = session ? session.user : null;
+    if ((sync.user && sync.user.id) !== was) { sync.ready = false; clearTimeout(pushTimer); }
     if (event === 'PASSWORD_RECOVERY') sync.recovering = true;
-    if (!sync.user) { sync.ready = false; set('status', 'off'); return; }
+    if (!sync.user) {
+      sync.ready = false; set('status', 'off');
+      // sessão terminada sem o botão "Sair" (expirou, foi revogada): avisar a app para limpar o aparelho
+      if (was && event === 'SIGNED_OUT' && sync.onSignedOut) sync.onSignedOut({ pending: pendingPush });
+      return;
+    }
     emit();
     // Antes de puxar, a app confirma de quem são os dados deste aparelho (aparelho partilhado = limpar primeiro)
-    if (sync.user.id !== was) setTimeout(() => Promise.resolve(sync.onUser && sync.onUser(sync.user)).then(pull), 0);
+    if (sync.user.id !== was) {
+      pendingPush = false; // alterações pendentes da conta anterior não passam para esta
+      setTimeout(() => Promise.resolve(sync.onUser && sync.onUser(sync.user)).then(() => { pendingPush = false; return pull(); }), 0);
+    }
   });
   window.addEventListener('online', () => sync.user && sync.now());
   document.addEventListener('visibilitychange', () => {

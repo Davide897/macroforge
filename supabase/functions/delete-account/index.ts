@@ -23,8 +23,10 @@ Deno.serve(async (req) => {
   let removed = 0;
   for (let page = 0; page < 50; page++) {
     const lr = await fetch(`${url}/storage/v1/object/list/photos`, { method: 'POST', headers: admin, body: JSON.stringify({ prefix: uid, limit: 1000 }) });
-    const objs = lr.ok ? await lr.json() : [];
-    if (!Array.isArray(objs) || !objs.length) break;
+    if (!lr.ok) { await lr.body?.cancel(); return json({ ok: false, error: 'photosFailed' }, 500); } // nunca apagar a conta com fotos por apagar
+    const objs = await lr.json();
+    if (!Array.isArray(objs)) return json({ ok: false, error: 'photosFailed' }, 500);
+    if (!objs.length) break;
     const prefixes = objs.map((o: { name: string }) => `${uid}/${o.name}`);
     const dr = await fetch(`${url}/storage/v1/object/photos`, { method: 'DELETE', headers: admin, body: JSON.stringify({ prefixes }) });
     if (!dr.ok) return json({ ok: false, error: 'photosFailed' }, 500);

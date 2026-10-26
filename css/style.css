@@ -295,3 +295,5 @@ details.danger { margin-top: 10px; border-top: 1px solid var(--line); padding-to
 details.danger summary { color: var(--bad); font-size: 13px; font-weight: 600; }
 details.danger summary::before { content: ""; }
 .danger-btn { background: var(--bad); color: #fff; box-shadow: none; }
+
+.tag.shared { background: color-mix(in srgb, var(--p) 22%, transparent); color: var(--text); }
