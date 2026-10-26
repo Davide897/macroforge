@@ -51,6 +51,7 @@
       <div class="tools">
         <div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en">EN</button></div>
         <span class="sync-slot">${syncPill()}</span>
+        <a class="icon help-btn" href="ajuda.html" title="${esc(t('help'))}" aria-label="${esc(t('help'))}">?</a>
         <button class="icon" data-act="theme" title="Theme">${ICON.sun}</button>
       </div>
     </header>
@@ -193,6 +194,7 @@
         <button class="btn ghost" type="submit" value="up">${t('signUp')}</button>
       </form>
       <button class="linkbtn" data-act="forgot">${t('forgot')}</button>
+      <a class="linkbtn help-link" href="ajuda.html">${t('helpLink')}</a>
       <div id="authMsg"></div>`;
     return `<div class="gate" style="background-image:linear-gradient(rgba(10,14,12,.55),rgba(10,14,12,.85)),url(img/hero.jpg)">
       <div class="gate-card">

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f1412">
+  <title>MacroForge · Como usar</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <style>
+    :root { --bg: #0f1412; --card: #18201c; --line: #26312c; --text: #e8efe9; --muted: #9db0a5; --accent: #b6f36a; --p: #6cc4ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .bar { max-width: 860px; margin: 0 auto; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--text); text-decoration: none; }
+    .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: #12200a; display: grid; place-items: center; font-weight: 800; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; }
+    .seg button { border: 0; background: transparent; color: var(--muted); padding: 5px 11px; border-radius: 8px; font: inherit; font-weight: 700; cursor: pointer; }
+    .seg button.on { background: var(--accent); color: #12200a; }
+    main { max-width: 860px; margin: 0 auto; padding: 24px 18px 80px; }
+    h1 { font-size: 30px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -.02em; }
+    .lead { color: var(--muted); font-size: 17px; margin-bottom: 18px; }
+    nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 28px; }
+    nav.toc a { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; color: var(--text); text-decoration: none; font-size: 14px; }
+    nav.toc a:hover { border-color: var(--accent); }
+    section.step { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 230px; gap: 22px; align-items: start; scroll-margin-top: 70px; }
+    section.step.noimg { grid-template-columns: 1fr; }
+    @media (max-width: 680px) { section.step { grid-template-columns: 1fr; } section.step figure { max-width: 270px; margin: 0 auto; } }
+    .num { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #12200a; font-weight: 800; margin-right: 8px; font-size: 15px; }
+    h2 { font-size: 21px; margin: 0 0 10px; display: flex; align-items: center; }
+    h3 { font-size: 16px; margin: 16px 0 4px; color: var(--accent); }
+    p, li { color: #cfd9d2; } ul, ol { padding-left: 20px; margin: 6px 0; } li { margin: 4px 0; }
+    b { color: var(--text); }
+    figure { margin: 0; } figure img { width: 100%; border-radius: 18px; border: 1px solid var(--line); display: block; box-shadow: 0 18px 40px -20px rgba(0,0,0,.8); }
+    figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
+    .tip { border-left: 3px solid var(--p); background: color-mix(in srgb, var(--p) 8%, transparent); padding: 10px 12px; border-radius: 8px; margin: 12px 0 0; font-size: 15px; }
+    .warn { border-left-color: #ffb454; background: color-mix(in srgb, #ffb454 8%, transparent); }
+    .cta { display: inline-block; margin-top: 10px; background: var(--accent); color: #12200a; font-weight: 800; padding: 11px 18px; border-radius: 12px; text-decoration: none; }
+    [data-l="en"] { display: none; } body.en [data-l="en"] { display: revert; } body.en [data-l="pt"] { display: none; }
+    details { border-top: 1px solid var(--line); padding: 10px 0; } summary { cursor: pointer; font-weight: 700; }
+  </style>
+</head>
+<body>
+<header><div class="bar">
+  <a class="brand" href="./"><span class="logo">M</span> MacroForge</a>
+  <div class="seg"><button data-lang="pt" class="on">PT</button><button data-lang="en">EN</button></div>
+</div></header>
+<main>
+
+<!-- ===================== PORTUGUÊS ===================== -->
+<div data-l="pt">
+  <h1>Como usar o MacroForge</h1>
+  <p class="lead">Em 5 minutos tens a tua meta de calorias, uma dieta feita com os alimentos de que gostas, a lista de compras e o acompanhamento do peso.</p>
+  <nav class="toc">
+    <a href="#pt-instalar">1. Instalar</a><a href="#pt-conta">2. Conta</a><a href="#pt-metas">3. Metas</a><a href="#pt-alimentos">4. Alimentos</a>
+    <a href="#pt-dieta">5. Dieta</a><a href="#pt-compras">6. Compras</a><a href="#pt-progresso">7. Progresso</a><a href="#pt-duvidas">Dúvidas</a>
+  </nav>
+
+  <section class="step noimg" id="pt-instalar">
+    <div>
+      <h2><span class="num">1</span>Instalar no telemóvel</h2>
+      <p>O MacroForge é uma app web: instala-se a partir do browser, sem loja, e fica com ícone no ecrã como qualquer app.</p>
+      <h3>iPhone</h3>
+      <ol><li>Abre <b>davide897.github.io/macroforge</b> no <b>Safari</b> (tem de ser o Safari).</li><li>Carrega no botão <b>Partilhar</b> (o quadrado com a seta para cima).</li><li>Escolhe <b>Adicionar ao ecrã principal</b> → <b>Adicionar</b>.</li></ol>
+      <h3>Android</h3>
+      <ol><li>Abre o link no <b>Chrome</b>.</li><li>Menu <b>⋮</b> → <b>Instalar app</b> (ou "Adicionar ao ecrã principal").</li></ol>
+      <h3>Computador</h3>
+      <p>No Chrome ou no Edge, carrega no ícone de instalar à direita da barra de endereço.</p>
+      <p class="tip">Depois de aberta uma vez, a app funciona sem internet. Os dados sincronizam quando a ligação voltar.</p>
+    </div>
+  </section>
+
+  <section class="step" id="pt-conta">
+    <div>
+      <h2><span class="num">2</span>Criar conta</h2>
+      <ol>
+        <li>Escreve o teu <b>email</b> e uma <b>palavra-passe</b> (mínimo 10 caracteres, com maiúscula, minúscula e número).</li>
+        <li>Marca a caixa do <b>aviso de privacidade</b> e carrega em <b>Criar conta</b>.</li>
+        <li>Abre o <b>email de confirmação</b> e carrega no link (vê também no spam).</li>
+        <li>Entra na app. A conta fica <b>a aguardar aprovação</b> do administrador; recebes um email quando estiver ativa e carregas em <b>Verificar outra vez</b>.</li>
+      </ol>
+      <p class="tip">A conta guarda tudo e sincroniza entre o telemóvel e o computador. Ninguém mais vê os teus dados.</p>
+    </div>
+    <figure><img src="img/tut/01-entrada.jpg" alt="Ecrã de entrada" loading="lazy"><figcaption>Ecrã de entrada</figcaption></figure>
+  </section>
+
+  <section class="step" id="pt-metas">
+    <div>
+      <h2><span class="num">3</span>Definir as tuas metas</h2>
+      <p>No separador <b>Metas</b>:</p>
+      <ol>
+        <li>Preenche o <b>perfil</b>: sexo, idade, altura e <b>peso</b>.</li>
+        <li>Escolhe o <b>objetivo</b>: cut agressivo, cut, manutenção, bulk moderado ou bulk agressivo.</li>
+        <li>A app calcula logo as <b>calorias, proteína, hidratos e gordura</b> do dia, com as regras "old school" de culturismo (multiplicadores por kg).</li>
+      </ol>
+      <h3>Afinar (opcional)</h3>
+      <ul><li><b>Ponto no intervalo</b>: começa no meio; mais para baixo = mais agressivo.</li><li>Podes mudar a proteína e a gordura por kg; os hidratos enchem o resto.</li></ul>
+      <p class="tip">Começa pelo valor do meio e ajusta ao fim de 2 a 3 semanas com o separador Progresso.</p>
+    </div>
+    <figure><img src="img/tut/02-metas.jpg" alt="Separador Metas" loading="lazy"><figcaption>A tua meta do dia</figcaption></figure>
+  </section>
+
+  <section class="step" id="pt-alimentos">
+    <div>
+      <h2><span class="num">4</span>Escolher os alimentos</h2>
+      <p>No separador <b>Alimentos</b>, marca em cada um:</p>
+      <ul><li><b>Gosto</b>: gostas de comer.</li><li><b>Compro</b>: consegues comprar.</li></ul>
+      <p>A dieta só usa alimentos com <b>as duas marcas</b>. Com pressa? Carrega em <b>Seleção rápida: básicos</b>.</p>
+      <h3>Falta um alimento?</h3>
+      <ul>
+        <li><b>Fotografar rótulo</b>: tira uma foto à tabela nutricional (de frente, com boa luz) e a app lê os valores sozinha.</li>
+        <li>Ou <b>Adicionar um alimento que falta</b> e escreves os valores por 100 g.</li>
+      </ul>
+      <p class="tip">Os alimentos que juntas ficam disponíveis para toda a gente da app (etiqueta "comunidade"). Ninguém vê quem os juntou.</p>
+    </div>
+    <figure><img src="img/tut/05-alimentos.jpg" alt="Separador Alimentos" loading="lazy"><figcaption>Gosto + Compro</figcaption></figure>
+  </section>
+
+  <section class="step" id="pt-dieta">
+    <div>
+      <h2><span class="num">5</span>Gerar a dieta</h2>
+      <ol>
+        <li>No separador <b>Dieta</b>, escolhe <b>quantas refeições</b> por dia (a bolinha marca a recomendada) e <b>quantos dias diferentes</b> queres.</li>
+        <li>Carrega em <b>Gerar nova dieta</b>. As barras em cima mostram se o dia bate com a meta.</li>
+      </ol>
+      <h3>Pôr a dieta à tua maneira</h3>
+      <ul>
+        <li><b>Mudar uma quantidade</b>: as outras ajustam-se sozinhas para manter a meta.</li>
+        <li><b>⇄ Trocar</b> um alimento por outro do mesmo tipo.</li>
+        <li><b>Cadeado</b>: fixa a quantidade de um alimento.</li>
+        <li>Escolhe a unidade: gramas, <b>colheres de sopa/chá</b>, chávenas, unidades.</li>
+        <li><b>+ Adicionar alimento</b> a uma refeição.</li>
+      </ul>
+      <p class="tip">No fundo da página: <b>Sugestões para juntar</b> (alimentos que melhoram a dieta) e <b>O que falta e o que está coberto</b>.</p>
+    </div>
+    <figure><img src="img/tut/07-refeicao.jpg" alt="Uma refeição" loading="lazy"><figcaption>Editar quantidades, trocar, fixar</figcaption></figure>
+  </section>
+
+  <section class="step" id="pt-compras">
+    <div>
+      <h2><span class="num">6</span>Lista de compras</h2>
+      <p>O separador <b>Compras</b> soma tudo o que precisas para <b>7 dias</b>, em kg e em unidades ("≈ 18 latas").</p>
+      <ul><li>Vai riscando o que já tens.</li><li><b>Copiar lista</b> para colar numa nota ou mensagem.</li></ul>
+      <p class="tip">Carnes, peixe, arroz e massa estão sempre em <b>peso cru</b>.</p>
+    </div>
+    <figure><img src="img/tut/09-compras.jpg" alt="Lista de compras" loading="lazy"><figcaption>Lista para a semana</figcaption></figure>
+  </section>
+
+  <section class="step" id="pt-progresso">
+    <div>
+      <h2><span class="num">7</span>Acompanhar o progresso</h2>
+      <ol>
+        <li>No separador <b>Progresso</b>, regista o <b>peso</b> (de manhã, em jejum, depois da casa de banho). A cintura e as kcal comidas são opcionais.</li>
+        <li>A <b>linha de tendência</b> alisa as oscilações de água. Conta a tendência, não o dia.</li>
+        <li>Com 5 pesagens em 10 dias ou mais, o <b>TDEE adaptativo</b> calcula quanto gastas de facto e recomenda as calorias. Carrega em <b>Aplicar à dieta</b>.</li>
+        <li><b>Fotos de progresso</b>: frente, lado e costas. Compara o antes e o depois lado a lado.</li>
+      </ol>
+      <p class="tip">Faz o check-in uma vez por semana: se o espelho e a balança discordarem, confia na tendência de 2 a 3 semanas.</p>
+    </div>
+    <figure><img src="img/tut/12-tdee.jpg" alt="Progresso e TDEE adaptativo" loading="lazy"><figcaption>Tendência e calorias recomendadas</figcaption></figure>
+  </section>
+
+  <section class="step noimg" id="pt-duvidas">
+    <div>
+      <h2>Dúvidas</h2>
+      <details><summary>Os meus dados estão seguros?</summary><p>Ficam na tua conta, num servidor na UE, e só tu lhes acedes. Podes exportar tudo (Progresso → Cópia de segurança) e apagar a conta a qualquer momento (Progresso → Conta → Apagar a minha conta). Ver <a href="privacy.html">Privacidade</a>.</p></details>
+      <details><summary>Esqueci-me da palavra-passe.</summary><p>No ecrã de entrada, escreve o email e carrega em "Esqueci-me da palavra-passe". Recebes um link para escolher outra.</p></details>
+      <details><summary>Usei a app noutro telemóvel. Os dados aparecem?</summary><p>Sim: entra com a mesma conta. A app sincroniza sozinha; o ponto verde no topo diz "Sincronizado".</p></details>
+      <details><summary>A leitura do rótulo falhou.</summary><p>Tira a foto de frente, com a tabela inteira e boa luz. Se o serviço estiver ocupado, tenta daqui a pouco ou carrega em "Preencher à mão". Há um limite diário de leituras por pessoa.</p></details>
+      <details><summary>Os dias da dieta saem iguais.</summary><p>Marca mais opções (pelo menos 3 proteínas, 3 hidratos, 2 legumes e 2 frutas). O cartão "Sugestões" diz o que falta.</p></details>
+      <details><summary>Partilhar o telemóvel com outra pessoa</summary><p>Antes de outra pessoa entrar, carrega em Sair (Progresso → Conta). Os teus dados saem do aparelho e ficam guardados na tua conta.</p></details>
+      <p class="tip warn">O MacroForge dá estimativas com base em regras de nutrição desportiva. <b>Não é aconselhamento médico.</b> Se tens alguma condição de saúde, estás grávida, és menor ou tens historial de distúrbios alimentares, fala com um médico ou nutricionista antes de seguir uma dieta.</p>
+      <a class="cta" href="./">Abrir o MacroForge</a>
+    </div>
+  </section>
+</div>
+
+<!-- ===================== ENGLISH ===================== -->
+<div data-l="en">
+  <h1>How to use MacroForge</h1>
+  <p class="lead">In 5 minutes you have your calorie target, a diet built from foods you like, a shopping list and weight tracking.</p>
+  <nav class="toc">
+    <a href="#en-install">1. Install</a><a href="#en-account">2. Account</a><a href="#en-targets">3. Targets</a><a href="#en-foods">4. Foods</a>
+    <a href="#en-diet">5. Diet</a><a href="#en-shop">6. Shopping</a><a href="#en-progress">7. Progress</a><a href="#en-faq">FAQ</a>
+  </nav>
+
+  <section class="step noimg" id="en-install">
+    <div>
+      <h2><span class="num">1</span>Install on your phone</h2>
+      <p>MacroForge is a web app: you install it from the browser, no store, and it gets an icon on your home screen like any app.</p>
+      <h3>iPhone</h3>
+      <ol><li>Open <b>davide897.github.io/macroforge</b> in <b>Safari</b> (it must be Safari).</li><li>Tap <b>Share</b> (the square with an up arrow).</li><li>Choose <b>Add to Home Screen</b> → <b>Add</b>.</li></ol>
+      <h3>Android</h3>
+      <ol><li>Open the link in <b>Chrome</b>.</li><li>Menu <b>⋮</b> → <b>Install app</b> (or "Add to Home screen").</li></ol>
+      <h3>Computer</h3>
+      <p>In Chrome or Edge, click the install icon at the right of the address bar.</p>
+      <p class="tip">Once opened, the app works offline. Your data syncs when the connection is back.</p>
+    </div>
+  </section>
+
+  <section class="step" id="en-account">
+    <div>
+      <h2><span class="num">2</span>Create an account</h2>
+      <ol>
+        <li>Type your <b>email</b> and a <b>password</b> (at least 10 characters, with upper case, lower case and a number).</li>
+        <li>Tick the <b>privacy notice</b> box and tap <b>Create account</b>.</li>
+        <li>Open the <b>confirmation email</b> and click the link (check spam too).</li>
+        <li>Sign in. The account <b>waits for the administrator's approval</b>; you get an email when it is active, then tap <b>Check again</b>.</li>
+      </ol>
+      <p class="tip">Your account keeps everything and syncs between phone and computer. Nobody else sees your data.</p>
+    </div>
+    <figure><img src="img/tut/01-entrada.jpg" alt="Sign-in screen" loading="lazy"><figcaption>Sign-in screen</figcaption></figure>
+  </section>
+
+  <section class="step" id="en-targets">
+    <div>
+      <h2><span class="num">3</span>Set your targets</h2>
+      <p>In the <b>Targets</b> tab:</p>
+      <ol>
+        <li>Fill in your <b>profile</b>: sex, age, height and <b>weight</b>.</li>
+        <li>Pick a <b>goal</b>: aggressive cut, cut, maintenance, lean bulk or aggressive bulk.</li>
+        <li>The app works out your daily <b>calories, protein, carbs and fat</b> using old-school bodybuilding rules (multipliers per kg).</li>
+      </ol>
+      <h3>Fine-tune (optional)</h3>
+      <ul><li><b>Point in the range</b>: start in the middle; lower = more aggressive.</li><li>You can change protein and fat per kg; carbs fill the rest.</li></ul>
+      <p class="tip">Start at the midpoint and adjust after 2 to 3 weeks with the Progress tab.</p>
+    </div>
+    <figure><img src="img/tut/02-metas.jpg" alt="Targets tab" loading="lazy"><figcaption>Your daily target</figcaption></figure>
+  </section>
+
+  <section class="step" id="en-foods">
+    <div>
+      <h2><span class="num">4</span>Pick your foods</h2>
+      <p>In the <b>Foods</b> tab, mark each food:</p>
+      <ul><li><b>Like</b>: you enjoy eating it.</li><li><b>Can buy</b>: you can get it.</li></ul>
+      <p>The diet only uses foods with <b>both marks</b>. In a hurry? Tap <b>Quick pick: basics</b>.</p>
+      <h3>Missing a food?</h3>
+      <ul>
+        <li><b>Photograph label</b>: take a photo of the nutrition table (straight on, good light) and the app reads the values.</li>
+        <li>Or <b>Add a missing food</b> and type the values per 100 g.</li>
+      </ul>
+      <p class="tip">Foods you add become available to everyone in the app ("community" tag). Nobody sees who added them.</p>
+    </div>
+    <figure><img src="img/tut/05-alimentos.jpg" alt="Foods tab" loading="lazy"><figcaption>Like + Can buy</figcaption></figure>
+  </section>
+
+  <section class="step" id="en-diet">
+    <div>
+      <h2><span class="num">5</span>Generate your diet</h2>
+      <ol>
+        <li>In the <b>Diet</b> tab, choose <b>meals per day</b> (the dot marks the recommended one) and <b>how many different days</b>.</li>
+        <li>Tap <b>Generate new diet</b>. The bars at the top show whether the day hits the target.</li>
+      </ol>
+      <h3>Make it yours</h3>
+      <ul>
+        <li><b>Change an amount</b>: the others adjust to keep the target.</li>
+        <li><b>⇄ Swap</b> a food for another of the same kind.</li>
+        <li><b>Lock</b>: pins a food's amount.</li>
+        <li>Pick the unit: grams, <b>tablespoons/teaspoons</b>, cups, units.</li>
+        <li><b>+ Add food</b> to a meal.</li>
+      </ul>
+      <p class="tip">At the bottom: <b>Suggestions to add</b> (foods that improve the diet) and <b>What is missing and what is covered</b>.</p>
+    </div>
+    <figure><img src="img/tut/07-refeicao.jpg" alt="A meal" loading="lazy"><figcaption>Edit amounts, swap, lock</figcaption></figure>
+  </section>
+
+  <section class="step" id="en-shop">
+    <div>
+      <h2><span class="num">6</span>Shopping list</h2>
+      <p>The <b>Shopping</b> tab adds up everything you need for <b>7 days</b>, in kg and in units ("≈ 18 cans").</p>
+      <ul><li>Tick off what you already have.</li><li><b>Copy list</b> to paste into a note or message.</li></ul>
+      <p class="tip">Meat, fish, rice and pasta are always <b>raw weight</b>.</p>
+    </div>
+    <figure><img src="img/tut/09-compras.jpg" alt="Shopping list" loading="lazy"><figcaption>List for the week</figcaption></figure>
+  </section>
+
+  <section class="step" id="en-progress">
+    <div>
+      <h2><span class="num">7</span>Track your progress</h2>
+      <ol>
+        <li>In the <b>Progress</b> tab, log your <b>weight</b> (morning, fasted, after the bathroom). Waist and kcal eaten are optional.</li>
+        <li>The <b>trend line</b> smooths out water swings. The trend counts, not the day.</li>
+        <li>With 5 weigh-ins over 10+ days, the <b>adaptive TDEE</b> works out what you really burn and recommends calories. Tap <b>Apply to diet</b>.</li>
+        <li><b>Progress photos</b>: front, side and back. Compare before and after side by side.</li>
+      </ol>
+      <p class="tip">Check in once a week: if the mirror and the scale disagree, trust the 2 to 3 week trend.</p>
+    </div>
+    <figure><img src="img/tut/12-tdee.jpg" alt="Progress and adaptive TDEE" loading="lazy"><figcaption>Trend and recommended calories</figcaption></figure>
+  </section>
+
+  <section class="step noimg" id="en-faq">
+    <div>
+      <h2>FAQ</h2>
+      <details><summary>Is my data safe?</summary><p>It stays in your account on a server in the EU and only you can access it. You can export everything (Progress → Backup) and delete your account any time (Progress → Account → Delete my account). See <a href="privacy.html">Privacy</a>.</p></details>
+      <details><summary>I forgot my password.</summary><p>On the sign-in screen, type your email and tap "Forgot my password". You get a link to choose a new one.</p></details>
+      <details><summary>I used the app on another phone. Does my data show up?</summary><p>Yes: sign in with the same account. The app syncs by itself; the green dot at the top says "Synced".</p></details>
+      <details><summary>Label reading failed.</summary><p>Take the photo straight on, with the whole table and good light. If the service is busy, try again shortly or tap "Fill in by hand". There is a daily reading limit per person.</p></details>
+      <details><summary>The diet days come out the same.</summary><p>Mark more options (at least 3 proteins, 3 carbs, 2 vegetables and 2 fruits). The "Suggestions" card tells you what is missing.</p></details>
+      <details><summary>Sharing a phone with someone</summary><p>Before someone else signs in, tap Sign out (Progress → Account). Your data leaves the device and stays saved in your account.</p></details>
+      <p class="tip warn">MacroForge gives estimates based on sports nutrition rules. <b>It is not medical advice.</b> If you have a health condition, are pregnant, under 18 or have a history of eating disorders, talk to a doctor or dietitian before following a diet.</p>
+      <a class="cta" href="./">Open MacroForge</a>
+    </div>
+  </section>
+</div>
+</main>
+<script src="js/ajuda.js"></script>
+</body>
+</html>
