@@ -62,7 +62,8 @@ Deno.serve(async (req) => {
       await sendMail(adminEmail, `MacroForge: aprovar ${user.email}?`, html);
       await rest(`profiles?user_id=eq.${user.id}`, { method: 'PATCH', body: JSON.stringify({ notified_at: new Date().toISOString() }) });
     } catch (e) {
-      return json({ ok: true, status: 'pending', notify: 'failed', detail: (e as Error).message.slice(0, 120) });
+      console.error('request-approval: envio do email falhou:', (e as Error).message); // só no registo do servidor
+      return json({ ok: true, status: 'pending', notify: 'failed' });
     }
   }
   return json({ ok: true, status: 'pending' });
