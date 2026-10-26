@@ -21,7 +21,8 @@
   });
 
   // O que vai para a nuvem: tudo menos o estado de navegação deste aparelho.
-  const LOCAL_ONLY = ['ui', 'tab', 'dayIdx', 'updatedAt', 'ownerId', 'sharedFoods']; // sharedFoods: cópia local do catálogo da comunidade // ownerId: de quem são os dados deste aparelho
+  // lang/theme são preferências deste aparelho: mudar a língua no ecrã de entrada não pode contar como "dados mais recentes"
+  const LOCAL_ONLY = ['ui', 'tab', 'dayIdx', 'updatedAt', 'ownerId', 'sharedFoods', 'lang', 'theme']; // sharedFoods: cópia local do catálogo da comunidade // ownerId: de quem são os dados deste aparelho
   const payload = s => { const o = {}; for (const k in s) if (!LOCAL_ONLY.includes(k)) o[k] = s[k]; return o; };
   let lastPayload = null; // para só marcar updatedAt quando os DADOS mudam (mudar de separador não conta)
 

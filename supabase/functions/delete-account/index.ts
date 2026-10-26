@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     await dr.body?.cancel();
     removed += prefixes.length;
   }
-  // 2) conta (app_state e label_usage apagam em cascata)
+  // 2) conta (app_state apaga em cascata; label_usage fica de propósito até ao fim do dia, sem FK, para a quota não se repor)
   const del = await fetch(`${url}/auth/v1/admin/users/${uid}`, { method: 'DELETE', headers: admin });
   if (!del.ok) return json({ ok: false, error: 'userFailed' }, 500);
   await del.body?.cancel();

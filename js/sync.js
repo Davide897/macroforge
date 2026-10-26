@@ -84,6 +84,8 @@
     if (!sync.user || !getState) return;
     const s = getState();
     s.photoMeta = s.photoMeta || []; s.photoDeleted = s.photoDeleted || {};
+    const monthAgo = Date.now() - 30 * 864e5;
+    for (const [id, ts] of Object.entries(s.photoDeleted)) if (ts < monthAgo) delete s.photoDeleted[id];
     const local = await MF.photos.all().catch(() => []);
     const localIds = new Set(local.map(p => p.id));
     const metaIds = new Set(s.photoMeta.map(p => p.id));
@@ -134,7 +136,12 @@
     if (!error) return { row: { ...data, mine: true }, created: true };
     if (error.code === '23505') {
       const { data: ex } = await sb.from('shared_foods').select(COLS).ilike('name', likeEscape(row.name.trim())).limit(1).maybeSingle();
-      if (ex) return { row: { ...ex, mine: false }, created: false };
+      if (ex) {
+        // Só usar o existente se os valores baterem com os teus (±10%): senão o teu fica privado, não é trocado pelo de outra pessoa.
+        const close = (a, b) => Math.abs(+a - +b) <= Math.max(1.5, 0.1 * Math.max(+a, +b));
+        const same = ['k', 'p', 'c', 'f'].every(k => close(ex[k], row[k]));
+        return same ? { row: { ...ex, mine: false }, created: false } : { conflict: ex };
+      }
     }
     throw error;
   };

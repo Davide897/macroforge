@@ -129,8 +129,13 @@
   if (SY()) {
     MF.sync.attach(() => S);
     MF.sync.onRemote = async (state, ts) => {
-      const keep = { ui: S.ui, tab: S.tab, dayIdx: S.dayIdx, ownerId: S.ownerId };
-      S = MF.store.replace({ ...state, ...keep });
+      const keep = { ui: S.ui, tab: S.tab, dayIdx: S.dayIdx, ownerId: S.ownerId, lang: S.lang, theme: S.theme, sharedFoods: S.sharedFoods };
+      const remote = sanitizeState(state);
+      const dead = { ...(S.photoDeleted || {}), ...(remote.photoDeleted || {}) };
+      const metaIds = new Set(remote.photoMeta.map(p => p.id));
+      remote.photoMeta = remote.photoMeta.concat((S.photoMeta || []).filter(p => !metaIds.has(p.id))).filter(p => !dead[p.id]);
+      remote.photoDeleted = dead;
+      S = MF.store.replace({ ...remote, ...keep });
       MF.store.adopt(S, ts);
       render(); toast(t('syncPulled'));
     };
@@ -141,7 +146,9 @@
     MF.sync.onUser = async user => {
       if (S.ownerId && S.ownerId !== user.id) await wipeLocal();          // dados de outra conta: nunca passam
       else if (!S.ownerId && await hasLocalData() && !confirm(t('adoptLocal'))) await wipeLocal(); // sem dono: só com o teu sim
-      S.ownerId = user.id; MF.store.save(S);
+      S.ownerId = user.id;
+      // Um aparelho sem dados nunca pode passar por "mais recente" do que a nuvem.
+      if (!(await hasLocalData())) MF.store.adopt(S, 0); else MF.store.save(S);
     };
     let lastGate = null;
     MF.sync.on(() => {
@@ -370,12 +377,45 @@
   }
   // Converte a leitura do servidor num alimento da app
   function foodFromLabel(L) {
-    const food = { id: 'c_' + Date.now().toString(36), pt: L.name, en: L.name, cat: L.cat, k: L.k, p: L.p, c: L.c, f: L.f, fb: L.fb || 0, m: L.m || 'BMS', custom: true, fromPhoto: true };
-    if (L.unit) food.unit = L.unit;
+    const food = { id: 'c_' + Date.now().toString(36), pt: String(L.name || '').slice(0, 60), en: String(L.name || '').slice(0, 60), cat: MF.CATS.includes(L.cat) ? L.cat : 'carb',
+      k: +L.k || 0, p: +L.p || 0, c: +L.c || 0, f: +L.f || 0, fb: +L.fb || 0, m: /^[BMS]{1,3}$/.test(L.m || '') ? L.m : 'BMS', custom: true, fromPhoto: true };
+    if (L.unit && +L.unit.g > 0) food.unit = { g: +L.unit.g, pt: cleanText(L.unit.pt) || 'un', en: cleanText(L.unit.en) || 'unit' };
     if (L.meas) food.meas = L.meas;
     food.por = food.unit ? food.unit.g : (L.serving || ({ veg: 150, fruit: 120, fat: 15 }[food.cat] || 100));
     return food;
   }
+
+  // Limpa um estado vindo de fora (ficheiro importado, nuvem, armazenamento antigo): só passam formas esperadas.
+  const DATE = /^\d{4}-\d{2}-\d{2}$/, SAFE_ID = /^[\w.\-]{1,80}$/, POSES = ['front', 'side', 'back'];
+  const MEAL_NAMES_OK = ['breakfast', 'morningSnack', 'lunch', 'afternoonSnack', 'dinner', 'supper'];
+  function sanitizeState(st) {
+    const s = st && typeof st === 'object' ? st : {};
+    const num = (x, a, b) => { const v = +x; return Number.isFinite(v) && v >= a && v <= b ? v : null; };
+    s.weights = (Array.isArray(s.weights) ? s.weights : []).filter(w => w && DATE.test(w.date) && num(w.kg, 20, 400) !== null)
+      .map(w => ({ date: w.date, kg: +w.kg, ...(num(w.waist, 20, 300) !== null ? { waist: +w.waist } : {}), ...(num(w.kcal, 0, 20000) !== null ? { kcal: +w.kcal } : {}) }));
+    s.customFoods = (Array.isArray(s.customFoods) ? s.customFoods : []).filter(f => f && SAFE_ID.test(f.id) && MF.CATS.includes(f.cat)
+      && typeof f.pt === 'string' && [f.k, f.p, f.c, f.f].every(x => num(x, 0, 1000) !== null)).map(f => {
+        const o = { ...f, pt: f.pt.slice(0, 60), en: String(f.en || f.pt).slice(0, 60), m: /^[BMS]{1,3}$/.test(f.m || '') ? f.m : 'BMS', custom: true };
+        if (o.unit) o.unit = num(o.unit.g, 0.5, 2000) ? { g: +o.unit.g, pt: cleanText(o.unit.pt) || 'un', en: cleanText(o.unit.en) || 'unit' } : undefined;
+        if (o.meas) o.meas = (Array.isArray(o.meas) ? o.meas : []).filter(e => Array.isArray(e) && MEAS_KEYS.includes(e[0]) && num(e[1], 0.5, 500)).map(e => [e[0], +e[1]]);
+        return o;
+      });
+    const foods = {}; for (const [k, v] of Object.entries(s.foods || {})) if (SAFE_ID.test(k)) foods[k] = { like: !!(v && v.like), buy: !!(v && v.buy) };
+    s.foods = foods;
+    s.photoMeta = (Array.isArray(s.photoMeta) ? s.photoMeta : []).filter(p => p && SAFE_ID.test(p.id) && DATE.test(p.date) && POSES.includes(p.pose));
+    const pd = {}; for (const [k, v] of Object.entries(s.photoDeleted || {})) if (SAFE_ID.test(k) && num(v, 0, 9e15)) pd[k] = +v;
+    s.photoDeleted = pd;
+    if (s.plan && Array.isArray(s.plan.days)) {
+      s.plan.days = s.plan.days.filter(d => d && Array.isArray(d.meals)).map(d => ({ meals: d.meals.filter(m => m && MEAL_NAMES_OK.includes(m.name) && ['B', 'M', 'S'].includes(m.type))
+        .map(m => ({ type: m.type, name: m.name, items: (Array.isArray(m.items) ? m.items : []).filter(i => i && SAFE_ID.test(i.id) && num(i.g, 0, 5000) !== null)
+          .map(i => ({ id: i.id, g: +i.g, ...(i.locked ? { locked: true } : {}), ...(MEAS_KEYS.concat(['unit']).includes(i.u) ? { u: i.u } : {}) })) })) }));
+    } else s.plan = null;
+    if (s.profile) for (const k of ['age', 'height', 'weight', 'bodyfat', 'protein', 'fat', 'carbs', 'kcalPos', 'activity', 'kcalOverride', 'meals', 'days'])
+      if (s.profile[k] !== null && s.profile[k] !== undefined && num(s.profile[k], 0, 100000) === null) s.profile[k] = null;
+    if (s.profile && !MF.GOALS[s.profile.goal]) s.profile.goal = 'cut';
+    return s;
+  }
+
   const SHARED_PREFIX = 'sh_';
   // Dados de outras pessoas: só passa o que tem a forma esperada (a base de dados também o garante).
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -415,6 +455,7 @@
         let res;
         if (food.sid) res = { row: await sy.updateShared(food.sid, foodToRow(food, source)), created: false, updated: true };
         else res = await sy.publishFood(foodToRow(food, source));
+        if (res.conflict) { upsertCustom(food); toast(t('sharedConflict')); return food; }
         const sf = sharedToFood(res.row);
         if (!sf) throw new Error('invalid');
         S.sharedFoods = (S.sharedFoods || []).filter(x => x.id !== sf.id).concat(sf);
@@ -644,7 +685,7 @@
     if (!f.unit) return w;
     const k = Math.ceil(g / f.unit.g - 0.05);
     const u = S.lang === 'en' ? f.unit.en : f.unit.pt;
-    return `${w} · ${t('approx', { n: k, u: u + (k > 1 ? 's' : '') })}`;
+    return `${w} · ${t('approx', { n: k, u: esc(u) + (k > 1 ? 's' : '') })}`;
   }
   function viewShop() {
     if (!S.plan) return `<section class="card empty with-img" style="background-image:linear-gradient(rgba(10,14,12,.78),rgba(10,14,12,.9)),url(img/meal-lunch.jpg)"><p>${t('noPlan')}</p><button class="btn" data-act="tab" data-v="plan">${t('tabPlan')}</button></section>`;
@@ -778,9 +819,12 @@
     try {
       const data = JSON.parse(await file.text());
       if (data.app !== 'macroforge' || !data.state) throw new Error('bad');
-      S = MF.store.replace({ ...data.state, ownerId: S.ownerId }); save();
+      S = MF.store.replace({ ...sanitizeState(data.state), ownerId: S.ownerId, lang: S.lang, theme: S.theme, sharedFoods: S.sharedFoods }); save();
       await MF.photos.clear();
-      for (const p of data.photos || []) await MF.photos.put({ id: p.id, date: p.date, pose: p.pose, blob: await (await fetch(p.data)).blob() });
+      for (const p of data.photos || []) {
+        if (!p || !SAFE_ID.test(p.id) || !DATE.test(p.date) || !POSES.includes(p.pose) || !/^data:image\/(jpeg|png|webp);base64,/.test(p.data || '')) continue;
+        await MF.photos.put({ id: p.id, date: p.date, pose: p.pose, blob: await (await fetch(p.data)).blob() });
+      }
       render(); toast(t('importOk'));
     } catch (e) { toast(t('importFail')); }
   }
@@ -986,6 +1030,9 @@
     }
   });
 
+  // O estado guardado neste aparelho também passa pela limpeza, sem contar como alteração
+  S = MF.store.replace({ ...sanitizeState(S), ownerId: S.ownerId, lang: S.lang, theme: S.theme, sharedFoods: S.sharedFoods });
+  MF.store.adopt(S, S.updatedAt || 0);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   render();
 })();

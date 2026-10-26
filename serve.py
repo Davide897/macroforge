@@ -212,7 +212,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _allowed_origin(self):
+        # Um site qualquer não pode usar este servidor (e a tua chave) por trás das costas.
+        origin = self.headers.get('Origin')
+        host = self.headers.get('Host', '')
+        return origin is None or origin in (f'http://{host}', f'http://localhost:{self.server.server_port}', f'http://127.0.0.1:{self.server.server_port}')
+
     def do_GET(self):
+        if any(part.startswith('.') for part in self.path.split('?')[0].split('/') if part):
+            return self.send_json(404, {'ok': False, 'error': 'notFound'})   # .git, .gitignore, etc.
         if self.path == '/api/status':
             return self.send_json(200, {'label': bool(load_key())})
         return super().do_GET()
@@ -220,6 +228,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path != '/api/label':
             return self.send_json(404, {'ok': False, 'error': 'notFound'})
+        if not self._allowed_origin() or not self.headers.get('Content-Type', '').startswith('application/json'):
+            return self.send_json(403, {'ok': False, 'error': 'forbidden'})
         n = int(self.headers.get('Content-Length') or 0)
         if n <= 0 or n > MAX_BODY:
             return self.send_json(413, {'ok': False, 'error': 'tooBig'})

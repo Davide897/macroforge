@@ -139,3 +139,50 @@ language sql stable security definer set search_path = public as $fn$
 $fn$;
 revoke all on function public.my_shared_food_ids() from public, anon;
 grant execute on function public.my_shared_food_ids() to authenticated;
+
+-- ===== Endurecimento (auditoria 2026-10-26) =====
+-- Segunda barreira para além do RLS: o papel anónimo não tem nada nas tabelas da app,
+-- e ninguém (fora o servidor) pode TRUNCATE/TRIGGER/REFERENCES.
+revoke all on public.app_state, public.label_usage, public.label_usage_email, public.shared_foods from anon;
+revoke truncate, trigger, references on public.app_state, public.shared_foods from authenticated;
+revoke all on public.label_usage, public.label_usage_email from authenticated;
+alter function public.valid_unit(jsonb) set search_path = '';
+alter function public.valid_meas(jsonb) set search_path = '';
+create index if not exists shared_foods_created_by_idx on public.shared_foods (created_by);
+-- my_shared_food_ids é SECURITY DEFINER de propósito: devolve só os ids do próprio (created_by é ilegível para os clientes).
+
+-- ===== Auditoria 2 (2026-10-26) =====
+-- Fotos: permitir substituir a própria foto (upload com upsert) e limitar a quantidade por pessoa
+drop policy if exists "fotos do dono: substituir" on storage.objects;
+create policy "fotos do dono: substituir" on storage.objects for update to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text)
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create or replace function public.photo_count_ok(uid text) returns boolean language sql stable security definer set search_path = '' as $fn$
+  select count(*) < 500 from storage.objects where bucket_id = 'photos' and (storage.foldername(name))[1] = uid
+$fn$;
+revoke all on function public.photo_count_ok(text) from public, anon;
+grant execute on function public.photo_count_ok(text) to authenticated;
+drop policy if exists "fotos do dono: enviar" on storage.objects;
+create policy "fotos do dono: enviar" on storage.objects for insert to authenticated
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text and public.photo_count_ok((select auth.uid())::text));
+-- Estado da app com tamanho limitado (o normal é < 100 KB)
+alter table public.app_state drop constraint if exists state_tamanho;
+alter table public.app_state add constraint state_tamanho check (pg_column_size(state) < 1048576);
+-- Comunidade: depois de 24 h um alimento fica fixo (ninguém muda os valores que outros já usam nas dietas)
+drop policy if exists "so o autor corrige" on public.shared_foods;
+drop policy if exists "so o autor apaga" on public.shared_foods;
+create policy "so o autor corrige" on public.shared_foods for update to authenticated
+  using ((select auth.uid()) = created_by and created_at > now() - interval '24 hours')
+  with check ((select auth.uid()) = created_by);
+create policy "so o autor apaga" on public.shared_foods for delete to authenticated
+  using ((select auth.uid()) = created_by and created_at > now() - interval '24 hours');
+-- Comunidade: no máximo 40 alimentos novos por pessoa por dia (contra quem encha o catálogo de lixo)
+create or replace function public.shared_foods_rate() returns trigger language plpgsql security definer set search_path = '' as $fn$
+begin
+  if (select count(*) from public.shared_foods where created_by = new.created_by and created_at > now() - interval '24 hours') >= 40 then
+    raise exception 'limite diário de alimentos partilhados' using errcode = 'P0001';
+  end if;
+  return new;
+end $fn$;
+drop trigger if exists shared_foods_rate on public.shared_foods;
+create trigger shared_foods_rate before insert on public.shared_foods for each row execute function public.shared_foods_rate();
