@@ -159,6 +159,13 @@ async function signedInUser(req: Request): Promise<string | null> {
   return u && u.id ? u.id : null;
 }
 
+async function approved(uid: string) {
+  const url = Deno.env.get('SUPABASE_URL'), svc = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const r = await fetch(`${url}/rest/v1/profiles?user_id=eq.${uid}&select=status`, { headers: { apikey: svc!, Authorization: `Bearer ${svc}` } });
+  if (!r.ok) { await r.body?.cancel(); return false; }
+  const rows = await r.json();
+  return rows.length > 0 && rows[0].status === 'approved';
+}
 const PER_USER_DAY = Number(Deno.env.get('LABEL_PER_USER_DAY') || 8);
 const GLOBAL_DAY = Number(Deno.env.get('LABEL_GLOBAL_DAY') || 20);
 async function quota(uid: string): Promise<{ ok: boolean; reason?: string }> {
@@ -177,6 +184,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ ok: false, error: 'notFound' }, 404);
   const uid = await signedInUser(req);
   if (!uid) return json({ ok: false, error: 'needLogin' }, 401);
+  if (!(await approved(uid))) return json({ ok: false, error: 'notApproved' }, 403);
   const key = Deno.env.get('OPENROUTER_API_KEY');
   if (!key) return json({ ok: false, error: 'noKey' });
   // deno-lint-ignore no-explicit-any

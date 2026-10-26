@@ -68,7 +68,8 @@
     $('#view').innerHTML = VIEWS[S.tab]();
     AFTER[S.tab]?.();
   }
-  function rerenderView() { $('#view').innerHTML = VIEWS[S.tab](); AFTER[S.tab]?.(); }
+  // Com o ecrã de entrada à vista (sessão terminada) não há #view: redesenha o ecrã certo
+  function rerenderView() { if (!$('#view') || gateState() !== 'app') return render(); $('#view').innerHTML = VIEWS[S.tab](); AFTER[S.tab]?.(); }
   function toast(msg) {
     const el = $('#toast'); if (!el) return;
     el.textContent = msg; el.classList.add('show');
@@ -164,12 +165,20 @@
     if (!sy) return 'app';                 // sem configuração da nuvem (versão só local): sem login
     if (!sy.authReady) return 'loading';
     if (sy.recovering) return 'recover';
-    return sy.user ? 'app' : 'login';
+    if (!sy.user) return 'login';
+    if (sy.approval === null) return 'loading';
+    if (sy.approval === 'rejected') return 'rejected';
+    return sy.approval === 'approved' ? 'app' : 'pending';
   }
   function gateHTML(state) {
     const langs = `<div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en">EN</button></div>`;
     let body;
     if (state === 'loading') body = `<div class="gate-loading"><span class="spinner"></span></div>`;
+    else if (state === 'pending') body = `<h2>${t('pendingTitle')}</h2><p class="muted">${t('pendingText', { email: esc(MF.sync.user.email) })}</p>
+      <button class="btn big-btn" data-act="recheck">${t('pendingCheck')}</button>
+      <button class="btn ghost" data-act="gateSignOut" style="margin-top:8px">${t('signOut')}</button><div id="authMsg"></div>`;
+    else if (state === 'rejected') body = `<h2>${t('rejectedTitle')}</h2><p class="muted">${t('rejectedText')}</p>
+      <button class="btn ghost" data-act="gateSignOut">${t('signOut')}</button>`;
     else if (state === 'recover') body = `<h2>${t('accNewPw')}</h2>
       <form id="newPwForm" class="form"><label>${t('password')}<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
       <button class="btn" type="submit">${t('save')}</button></form><div id="authMsg"></div>`;
@@ -177,6 +186,7 @@
       <form id="authForm" class="form">
         <label>Email<input name="email" type="email" required autocomplete="email"></label>
         <label>${t('password')}<input name="password" type="password" minlength="8" required autocomplete="current-password"></label>
+        <small class="muted">${t('pwRules')}</small>
         <button class="btn big-btn" type="submit" value="in">${t('signIn')}</button>
         <div class="gate-sep"><span>${t('gateNew')}</span></div>
         <label class="inline consent"><input type="checkbox" name="consent"> <span>${t('consent')} <a href="privacy.html" target="_blank" rel="noopener">${t('privacyLink')}</a></span></label>
@@ -785,6 +795,7 @@
     photoURLs.forEach(URL.revokeObjectURL); photoURLs = [];
     let list = [];
     try { list = await MF.photos.all(); } catch (e) { gal.innerHTML = `<p class="note warn">IndexedDB: ${esc(e.message || e)}</p>`; return; }
+    if (!document.body.contains(gal) || !$('#compare')) return; // entretanto o ecrã mudou (ex.: saiu da conta)
     list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
     const url = p => { const u = URL.createObjectURL(p.blob); photoURLs.push(u); return u; };
     if (!list.length) { gal.innerHTML = `<p class="muted">${t('noPhotos')}</p>`; $('#compare').innerHTML = ''; return; }
@@ -888,6 +899,8 @@
       case 'delPhoto': if (confirm(t('confirmDelPhoto'))) MF.photos.del(id).then(() => { if (SY()) MF.sync.photoDeleted(id); renderPhotos(); }); return;
       case 'account': if (S.tab !== 'progress') { S.tab = 'progress'; save(); render(); } setTimeout(() => $('#account')?.scrollIntoView({ behavior: 'smooth' }), 50); return;
       case 'syncNow': MF.sync.now(); return;
+      case 'recheck': MF.sync.recheck().then(st => { if (st !== 'approved') authMsg(t('pendingStill'), true); }); return;
+      case 'gateSignOut': MF.sync.signOut().then(() => wipeLocal()); return;
       case 'signOut': (async () => {
         if (!confirm(t('signOutConfirm'))) return;
         await MF.sync.now();

@@ -195,3 +195,69 @@ begin
 end $fn$;
 drop trigger if exists shared_foods_created_at on public.shared_foods;
 create trigger shared_foods_created_at before insert or update on public.shared_foods for each row execute function public.shared_foods_created_at();
+
+-- ===== Aprovação de contas pelo administrador (2026-10-26) =====
+create table if not exists public.profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  notified_at timestamptz, decided_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table public.profiles enable row level security;
+drop policy if exists "ver o meu perfil" on public.profiles;
+create policy "ver o meu perfil" on public.profiles for select to authenticated using ((select auth.uid()) = user_id);
+revoke all on public.profiles from anon;
+revoke insert, update, delete, truncate, trigger, references on public.profiles from authenticated;
+-- cada conta nova nasce "pendente"
+create or replace function public.new_user_profile() returns trigger language plpgsql security definer set search_path = '' as $fn$
+begin
+  insert into public.profiles (user_id, email) values (new.id, new.email) on conflict (user_id) do nothing;
+  return new;
+end $fn$;
+drop trigger if exists on_auth_user_created_profile on auth.users;
+create trigger on_auth_user_created_profile after insert on auth.users for each row execute function public.new_user_profile();
+insert into public.profiles (user_id, email) select id, email from auth.users on conflict (user_id) do nothing;
+
+create or replace function public.is_approved() returns boolean language sql stable security definer set search_path = '' as $fn$
+  select exists (select 1 from public.profiles where user_id = auth.uid() and status = 'approved')
+$fn$;
+revoke all on function public.is_approved() from public, anon;
+grant execute on function public.is_approved() to authenticated;
+
+-- Todas as regras passam a exigir conta aprovada
+drop policy if exists "dono le" on public.app_state;
+drop policy if exists "dono escreve" on public.app_state;
+drop policy if exists "dono atualiza" on public.app_state;
+drop policy if exists "dono apaga" on public.app_state;
+create policy "dono le" on public.app_state for select to authenticated using ((select auth.uid()) = user_id and (select public.is_approved()));
+create policy "dono escreve" on public.app_state for insert to authenticated with check ((select auth.uid()) = user_id and (select public.is_approved()));
+create policy "dono atualiza" on public.app_state for update to authenticated using ((select auth.uid()) = user_id and (select public.is_approved())) with check ((select auth.uid()) = user_id);
+create policy "dono apaga" on public.app_state for delete to authenticated using ((select auth.uid()) = user_id);
+
+drop policy if exists "fotos do dono: ler" on storage.objects;
+drop policy if exists "fotos do dono: enviar" on storage.objects;
+drop policy if exists "fotos do dono: substituir" on storage.objects;
+create policy "fotos do dono: ler" on storage.objects for select to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text and (select public.is_approved()));
+create policy "fotos do dono: enviar" on storage.objects for insert to authenticated
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text and public.photo_count_ok((select auth.uid())::text) and (select public.is_approved()));
+create policy "fotos do dono: substituir" on storage.objects for update to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text and (select public.is_approved()))
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "todos com conta veem" on public.shared_foods;
+drop policy if exists "criar em nome proprio" on public.shared_foods;
+drop policy if exists "so o autor corrige" on public.shared_foods;
+drop policy if exists "so o autor apaga" on public.shared_foods;
+create policy "todos com conta veem" on public.shared_foods for select to authenticated using ((select public.is_approved()));
+create policy "criar em nome proprio" on public.shared_foods for insert to authenticated with check ((select auth.uid()) = created_by and (select public.is_approved()));
+create policy "so o autor corrige" on public.shared_foods for update to authenticated
+  using ((select auth.uid()) = created_by and created_at > now() - interval '24 hours' and (select public.is_approved()))
+  with check ((select auth.uid()) = created_by);
+create policy "so o autor apaga" on public.shared_foods for delete to authenticated
+  using ((select auth.uid()) = created_by and created_at > now() - interval '24 hours' and (select public.is_approved()));
+create or replace function public.my_shared_food_ids() returns setof uuid
+language sql stable security definer set search_path = public as $fn$
+  select id from public.shared_foods where created_by = auth.uid() and public.is_approved()
+$fn$;

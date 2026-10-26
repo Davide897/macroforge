@@ -9,7 +9,8 @@
   const sync = MF.sync = {
     available: !!(cfg && window.supabase),
     user: null, status: 'off', lastSync: null, error: null, ready: false,
-    authReady: false,                     // já se sabe se há sessão guardada (evita mostrar o login a quem já entrou)
+    authReady: false,
+    approval: null,                       // null (a verificar) | 'pending' | 'approved' | 'rejected'                     // já se sabe se há sessão guardada (evita mostrar o login a quem já entrou)
     onRemote: null,                       // a app regista aqui como aplicar um estado vindo da nuvem
     on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   };
@@ -159,6 +160,29 @@
     return data;
   };
 
+  // ---------- aprovação da conta pelo administrador ----------
+  const APPROVED_KEY = 'macroforge.approved';
+  sync.checkApproval = async () => {
+    if (!sync.user) return null;
+    try {
+      const { data, error } = await sb.functions.invoke('request-approval', { body: {} });
+      if (error) throw error;
+      sync.approval = data.status;
+    } catch (e) {
+      // sem rede: se esta conta já foi aprovada neste aparelho, continua a funcionar offline
+      sync.approval = localStorage.getItem(APPROVED_KEY) === sync.user.id ? 'approved' : (sync.approval || 'pending');
+    }
+    if (sync.approval === 'approved') localStorage.setItem(APPROVED_KEY, sync.user.id);
+    emit();
+    return sync.approval;
+  };
+  sync.recheck = async () => {
+    const was = sync.approval;
+    const now = await sync.checkApproval();
+    if (now === 'approved' && was !== 'approved') { await Promise.resolve(sync.onUser && sync.onUser(sync.user)); pendingPush = false; await pull(); }
+    return now;
+  };
+
   // ---------- apagar conta (função na nuvem: fotos + dados + conta) ----------
   sync.deleteAccount = async () => {
     const { data, error } = await sb.functions.invoke('delete-account', { body: {} });
@@ -186,7 +210,13 @@
     // Antes de puxar, a app confirma de quem são os dados deste aparelho (aparelho partilhado = limpar primeiro)
     if (sync.user.id !== was) {
       pendingPush = false; // alterações pendentes da conta anterior não passam para esta
-      setTimeout(() => Promise.resolve(sync.onUser && sync.onUser(sync.user)).then(() => { pendingPush = false; return pull(); }), 0);
+      sync.approval = null; emit();
+      // Só depois de a conta estar aprovada é que há dados, fotos e comunidade
+      setTimeout(async () => {
+        if ((await sync.checkApproval()) !== 'approved') return;
+        await Promise.resolve(sync.onUser && sync.onUser(sync.user));
+        pendingPush = false; return pull();
+      }, 0);
     }
   });
   window.addEventListener('online', () => sync.user && sync.now());
