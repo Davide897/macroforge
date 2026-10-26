@@ -186,3 +186,12 @@ begin
 end $fn$;
 drop trigger if exists shared_foods_rate on public.shared_foods;
 create trigger shared_foods_rate before insert on public.shared_foods for each row execute function public.shared_foods_rate();
+
+-- created_at é sempre do servidor (segunda barreira: as permissões por coluna já não deixam o cliente escrevê-lo)
+create or replace function public.shared_foods_created_at() returns trigger language plpgsql set search_path = '' as $fn$
+begin
+  if tg_op = 'INSERT' then new.created_at := now(); else new.created_at := old.created_at; end if;
+  return new;
+end $fn$;
+drop trigger if exists shared_foods_created_at on public.shared_foods;
+create trigger shared_foods_created_at before insert or update on public.shared_foods for each row execute function public.shared_foods_created_at();
