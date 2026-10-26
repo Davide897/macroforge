@@ -45,7 +45,9 @@ Deno.serve(async (req) => {
       const t = nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 465, secure: true,
         auth: { user: Deno.env.get('BREVO_SMTP_LOGIN')!, pass: Deno.env.get('BREVO_SMTP_KEY')! } });
       await t.sendMail({ from: `MacroForge <${Deno.env.get('BREVO_SENDER_EMAIL')}>`, to: email, subject: 'MacroForge: a tua conta foi aprovada',
-        html: `<h2>A tua conta MacroForge está ativa</h2><p><a href="${Deno.env.get('APP_URL')}">Abrir o MacroForge</a></p>` });
+        html: `<h2>A tua conta MacroForge está ativa</h2>
+          <p><a href="${Deno.env.get('APP_URL')}" style="background:#4f9d12;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Abrir o MacroForge</a></p>
+          <p>Primeira vez? Vê o guia passo a passo: <a href="${Deno.env.get('APP_URL')}ajuda.html">Como usar o MacroForge</a></p>` });
     } catch { /* a aprovação vale na mesma; o email é só um aviso */ }
   }
   return json({ ok: true, status, email });
