@@ -1,0 +1,10 @@
+{
+ "prompt": "A big plate with grilled chicken thighs, a large portion of white rice, roasted sweet potato wedges and green beans, plus two boiled eggs. Overhead top-down food photography on a dark charcoal slate surface, soft natural window light from the upper left, gentle realistic shadows, muted palette of deep greens, charcoal and warm natural food colours, minimal props, shot on a 50mm lens at f/4, ISO 200, crisp detail on food textures (grain of rice, sear marks, droplets), real food with natural imperfections, editorial but not glossy. No text, no logos, no people, no hands, no labels.",
+ "negative_prompt": "text, letters, watermark, logo, people, hands, fingers, plastic food, CGI, 3D render, oversaturated, cartoon, illustration, blurry, cluttered",
+ "api_parameters": {
+  "model": "nano-banana-2-lite",
+  "resolution": "1K",
+  "aspect_ratio": "4:3",
+  "output_format": "jpg"
+ }
+}
