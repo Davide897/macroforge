@@ -23,7 +23,7 @@
   const redirect = () => location.origin + location.pathname;
 
   // ---------- conta ----------
-  sync.signUp = (email, password) => sb.auth.signUp({ email, password, options: { emailRedirectTo: redirect() } });
+  sync.signUp = (email, password, meta) => sb.auth.signUp({ email, password, options: { emailRedirectTo: redirect(), data: meta || {} } });
   sync.signIn = (email, password) => sb.auth.signInWithPassword({ email, password });
   sync.signOut = () => sb.auth.signOut();
   sync.resetPassword = email => sb.auth.resetPasswordForEmail(email, { redirectTo: redirect() });
@@ -119,6 +119,15 @@
     return data;
   };
 
+  // ---------- apagar conta (função na nuvem: fotos + dados + conta) ----------
+  sync.deleteAccount = async () => {
+    const { data, error } = await sb.functions.invoke('delete-account', { body: {} });
+    if (error) throw error;
+    if (!data || !data.ok) throw new Error((data && data.error) || 'deleteFailed');
+    await sb.auth.signOut().catch(() => {});
+    return data;
+  };
+
   // ---------- ciclo de vida ----------
   sb.auth.onAuthStateChange((event, session) => {
     const was = sync.user && sync.user.id;
@@ -126,7 +135,8 @@
     if (event === 'PASSWORD_RECOVERY') sync.recovering = true;
     if (!sync.user) { sync.ready = false; set('status', 'off'); return; }
     emit();
-    if (sync.user.id !== was) setTimeout(pull, 0);
+    // Antes de puxar, a app confirma de quem são os dados deste aparelho (aparelho partilhado = limpar primeiro)
+    if (sync.user.id !== was) setTimeout(() => Promise.resolve(sync.onUser && sync.onUser(sync.user)).then(pull), 0);
   });
   window.addEventListener('online', () => sync.user && sync.now());
   document.addEventListener('visibilitychange', () => {

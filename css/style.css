@@ -287,3 +287,11 @@ h2 { font-size: 19px; letter-spacing: -.01em; }
 .account { border-color: color-mix(in srgb, var(--p) 35%, var(--line)); }
 .linkbtn { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
 @media (max-width: 720px) { .sync-pill span:last-child { display: none; } .sync-pill { padding: 8px; } }
+
+/* Várias contas */
+.consent { margin-top: 4px; font-size: 13px; color: var(--muted); align-items: flex-start; gap: 8px; }
+.consent input { margin-top: 3px; } .consent a, .account a { color: var(--accent); }
+details.danger { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.danger summary { color: var(--bad); font-size: 13px; font-weight: 600; }
+details.danger summary::before { content: ""; }
+.danger-btn { background: var(--bad); color: #fff; box-shadow: none; }

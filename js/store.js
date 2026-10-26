@@ -21,7 +21,7 @@
   });
 
   // O que vai para a nuvem: tudo menos o estado de navegação deste aparelho.
-  const LOCAL_ONLY = ['ui', 'tab', 'dayIdx', 'updatedAt'];
+  const LOCAL_ONLY = ['ui', 'tab', 'dayIdx', 'updatedAt', 'ownerId']; // ownerId: de quem são os dados deste aparelho
   const payload = s => { const o = {}; for (const k in s) if (!LOCAL_ONLY.includes(k)) o[k] = s[k]; return o; };
   let lastPayload = null; // para só marcar updatedAt quando os DADOS mudam (mudar de separador não conta)
 

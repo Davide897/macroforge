@@ -159,10 +159,24 @@ async function signedInUser(req: Request): Promise<string | null> {
   return u && u.id ? u.id : null;
 }
 
+const PER_USER_DAY = Number(Deno.env.get('LABEL_PER_USER_DAY') || 8);
+const GLOBAL_DAY = Number(Deno.env.get('LABEL_GLOBAL_DAY') || 20);
+async function quota(uid: string): Promise<{ ok: boolean; reason?: string }> {
+  const url = Deno.env.get('SUPABASE_URL'), svc = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !svc) return { ok: false, reason: 'quota' };
+  const r = await fetch(`${url}/rest/v1/rpc/try_label`, {
+    method: 'POST', headers: { apikey: svc, Authorization: `Bearer ${svc}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_user: uid, p_user_limit: PER_USER_DAY, p_global_limit: GLOBAL_DAY }),
+  });
+  if (!r.ok) { await r.body?.cancel(); return { ok: false, reason: 'quota' }; }
+  return await r.json();
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ ok: false, error: 'notFound' }, 404);
-  if (!(await signedInUser(req))) return json({ ok: false, error: 'needLogin' }, 401);
+  const uid = await signedInUser(req);
+  if (!uid) return json({ ok: false, error: 'needLogin' }, 401);
   const key = Deno.env.get('OPENROUTER_API_KEY');
   if (!key) return json({ ok: false, error: 'noKey' });
   // deno-lint-ignore no-explicit-any
@@ -171,5 +185,8 @@ Deno.serve(async (req) => {
   const img = String(body?.image || '');
   if (!img.startsWith('data:image/')) return json({ ok: false, error: 'badRequest' }, 400);
   if (img.length > MAX_IMAGE) return json({ ok: false, error: 'tooBig' }, 413);
+  // Quota partilhada do OpenRouter grátis (50 pedidos/dia na conta): limite por pessoa e no total.
+  const q = await quota(uid);
+  if (!q.ok) return json({ ok: false, error: q.reason || 'quota' });
   return json(await readLabel(img, key));
 });

@@ -92,6 +92,7 @@
         <label>Email<input name="email" type="email" required autocomplete="email"></label>
         <label>${t('password')}<input name="password" type="password" minlength="8" required autocomplete="current-password"></label>
         <div class="row gap"><button class="btn" type="submit" value="in">${t('signIn')}</button><button class="btn ghost" type="submit" value="up">${t('signUp')}</button></div>
+        <label class="inline consent span4"><input type="checkbox" name="consent"> <span>${t('consent')} <a href="privacy.html" target="_blank" rel="noopener">${t('privacyLink')}</a></span></label>
       </form>
       <button class="linkbtn" data-act="forgot">${t('forgot')}</button>
       <div id="authMsg"></div></section>`;
@@ -101,7 +102,18 @@
         <p class="muted small">${t('accSignedIn', { email: esc(sy.user.email) })} · ${t('accLast', { t: last })}</p>
         ${sy.error ? `<p class="small" style="color:var(--warn)">${esc(sy.error)}</p>` : ''}</div>
         <div class="row gap">${syncPill()}<button class="btn small" data-act="syncNow">${t('syncNow')}</button><button class="btn small ghost" data-act="signOut">${t('signOut')}</button></div></div>
-      <p class="muted small">${t('accHow')}</p></section>`;
+      <p class="muted small">${t('accHow')} <a href="privacy.html" target="_blank" rel="noopener">${t('privacyLink')}</a></p>
+      <details class="danger"><summary>${t('deleteAccount')}</summary>
+        <p class="small">${t('deleteWarn')}</p>
+        <button class="btn small danger-btn" data-act="deleteAccount">${t('deleteAccountBtn')}</button></details></section>`;
+  }
+  // Limpa os dados DESTE aparelho (a conta na nuvem não é tocada)
+  async function wipeLocal() {
+    const keep = { lang: S.lang, theme: S.theme, tab: S.tab };
+    S = MF.store.replace(keep);
+    MF.store.adopt(S, 0);
+    await MF.photos.clear().catch(() => {});
+    render();
   }
   function authMsg(msg, ok) { const el = $('#authMsg'); if (el) el.innerHTML = `<div class="note ${ok ? 'ok' : 'warn'}">${esc(msg)}</div>`; }
   function refreshSyncUI() {
@@ -117,6 +129,11 @@
       render(); toast(t('syncPulled'));
     };
     MF.sync.onPhotos = () => { if (S.tab === 'progress') renderPhotos(); };
+    // Aparelho partilhado: dados de outra conta nunca passam para esta.
+    MF.sync.onUser = async user => {
+      if (S.ownerId && S.ownerId !== user.id) await wipeLocal();
+      S.ownerId = user.id; MF.store.save(S);
+    };
     MF.sync.on(refreshSyncUI);
   }
 
@@ -718,7 +735,18 @@
       case 'delPhoto': if (confirm(t('confirmDelPhoto'))) MF.photos.del(id).then(() => { if (SY()) MF.sync.photoDeleted(id); renderPhotos(); }); return;
       case 'account': if (S.tab !== 'progress') { S.tab = 'progress'; save(); render(); } setTimeout(() => $('#account')?.scrollIntoView({ behavior: 'smooth' }), 50); return;
       case 'syncNow': MF.sync.now(); return;
-      case 'signOut': MF.sync.signOut().then(() => toast(t('signedOut'))); return;
+      case 'signOut': (async () => {
+        if (!confirm(t('signOutConfirm'))) return;
+        await MF.sync.now();
+        if (MF.sync.status !== 'ok' && !confirm(t('signOutUnsynced'))) return;
+        await MF.sync.signOut(); await wipeLocal(); toast(t('signedOut'));
+      })(); return;
+      case 'deleteAccount': (async () => {
+        const word = t('deleteWord');
+        if (prompt(t('deleteConfirm', { w: word })) !== word) return toast(t('deleteCancelled'));
+        try { await MF.sync.deleteAccount(); await wipeLocal(); toast(t('deleteDone')); }
+        catch (e) { toast(t('deleteFailed') + ' ' + (e.message || '')); }
+      })(); return;
       case 'forgot': {
         const email = $('#authForm [name=email]')?.value;
         if (!email) return authMsg(t('accNeedEmail'));
@@ -807,8 +835,9 @@
     if (e.target.id === 'authForm') {
       const fd = new FormData(e.target), email = fd.get('email').trim(), pw = fd.get('password');
       const up = e.submitter && e.submitter.value === 'up';
+      if (up && !fd.get('consent')) return authMsg(t('consentNeeded'));
       authMsg(t('accWorking'), true);
-      (up ? MF.sync.signUp(email, pw) : MF.sync.signIn(email, pw)).then(({ data, error }) => {
+      (up ? MF.sync.signUp(email, pw, { consent_at: new Date().toISOString(), consent_version: 1 }) : MF.sync.signIn(email, pw)).then(({ data, error }) => {
         if (error) return authMsg(error.message);
         if (up && !data.session) return authMsg(t('accCheckEmail'), true);
         toast(t('signedIn'));
