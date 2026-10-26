@@ -4,7 +4,7 @@
 #   e devolve o alimento já normalizado por 100 g. A chave nunca chega ao browser.
 #
 # Chave: variável de ambiente OPENROUTER_API_KEY, senão C:\Users\<user>\.secrets\.env.
-import base64, http.server, json, os, pathlib, re, sys, time, urllib.error, urllib.request
+import base64, http.server, json, os, pathlib, re, sys, time, urllib.error, urllib.parse, urllib.request
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 OPENROUTER = 'https://openrouter.ai/api/v1/chat/completions'
@@ -212,15 +212,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _hosts(self):
+        # Lista fixa (nunca construída a partir do Host do pedido, por causa de DNS rebinding).
+        port = self.server.server_port
+        return {f'localhost:{port}', f'127.0.0.1:{port}'}
+
     def _allowed_origin(self):
         # Um site qualquer não pode usar este servidor (e a tua chave) por trás das costas.
+        if self.headers.get('Host', '') not in self._hosts():
+            return False
         origin = self.headers.get('Origin')
-        host = self.headers.get('Host', '')
-        return origin is None or origin in (f'http://{host}', f'http://localhost:{self.server.server_port}', f'http://127.0.0.1:{self.server.server_port}')
+        return origin is None or origin in {f'http://{h}' for h in self._hosts()}
+
+    def translate_path(self, path):
+        # Verificar o ficheiro REAL que vai ser aberto (já descodificado e resolvido): nada fora da pasta
+        # da app e nada escondido (.git, .gitignore...). Cobre GET e HEAD e qualquer codificação (%2e).
+        full = super().translate_path(path)
+        root = pathlib.Path(APP_DIR).resolve()
+        try:
+            rel = pathlib.Path(full).resolve().relative_to(root)
+        except ValueError:
+            return str(root / '__bloqueado__')
+        if any(part.startswith('.') for part in rel.parts):
+            return str(root / '__bloqueado__')
+        return full
+
+    def do_HEAD(self):
+        if self.headers.get('Host', '') not in self._hosts():
+            return self.send_json(403, {'ok': False, 'error': 'forbidden'})
+        return super().do_HEAD()
 
     def do_GET(self):
-        if any(part.startswith('.') for part in self.path.split('?')[0].split('/') if part):
-            return self.send_json(404, {'ok': False, 'error': 'notFound'})   # .git, .gitignore, etc.
+        if self.headers.get('Host', '') not in self._hosts():
+            return self.send_json(403, {'ok': False, 'error': 'forbidden'})  # DNS rebinding
         if self.path == '/api/status':
             return self.send_json(200, {'label': bool(load_key())})
         return super().do_GET()
