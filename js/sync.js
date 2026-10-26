@@ -9,6 +9,7 @@
   const sync = MF.sync = {
     available: !!(cfg && window.supabase),
     user: null, status: 'off', lastSync: null, error: null, ready: false,
+    authReady: false,                     // já se sabe se há sessão guardada (evita mostrar o login a quem já entrou)
     onRemote: null,                       // a app regista aqui como aplicar um estado vindo da nuvem
     on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   };
@@ -114,27 +115,33 @@
   sync.photoDeleted = id => { const s = getState && getState(); if (!s) return; s.photoDeleted = { ...(s.photoDeleted || {}), [id]: Date.now() }; s.photoMeta = (s.photoMeta || []).filter(p => p.id !== id); MF.store.save(s); if (sync.user) syncPhotos().catch(() => {}); };
 
   // ---------- catálogo de alimentos da comunidade ----------
-  const COLS = 'id, created_by, name, cat, k, p, c, f, fb, m, unit, meas, por, source';
+  // created_by nunca sai da base de dados: "é meu?" vem de uma função que só devolve os meus ids
+  const COLS = 'id, name, cat, k, p, c, f, fb, m, unit, meas, por, source';
   sync.fetchShared = async () => {
     if (!sync.user) return null;
-    const { data, error } = await sb.from('shared_foods').select(COLS).order('name').limit(5000);
+    const [{ data, error }, mine] = await Promise.all([
+      sb.from('shared_foods').select(COLS).order('name').limit(5000),
+      sb.rpc('my_shared_food_ids'),
+    ]);
     if (error) throw error;
-    return data;
+    const mineSet = new Set((mine.data || []).map(x => (typeof x === 'string' ? x : Object.values(x)[0])));
+    return (data || []).map(r => ({ ...r, mine: mineSet.has(r.id) }));
   };
+  const likeEscape = s => s.replace(/[\\%_]/g, ch => '\\' + ch);
   // Publica um alimento. Se o nome já existir na comunidade, devolve o existente (sem duplicar).
   sync.publishFood = async row => {
-    const { data, error } = await sb.from('shared_foods').insert({ ...row, created_by: sync.user.id }).select(COLS).single();
-    if (!error) return { row: data, created: true };
+    const { data, error } = await sb.from('shared_foods').insert(row).select(COLS).single(); // o autor é posto pela base de dados
+    if (!error) return { row: { ...data, mine: true }, created: true };
     if (error.code === '23505') {
-      const { data: ex } = await sb.from('shared_foods').select(COLS).ilike('name', row.name.trim()).limit(1).maybeSingle();
-      if (ex) return { row: ex, created: false };
+      const { data: ex } = await sb.from('shared_foods').select(COLS).ilike('name', likeEscape(row.name.trim())).limit(1).maybeSingle();
+      if (ex) return { row: { ...ex, mine: false }, created: false };
     }
     throw error;
   };
   sync.updateShared = async (id, row) => {
     const { data, error } = await sb.from('shared_foods').update(row).eq('id', id).select(COLS).single();
     if (error) throw error;
-    return data;
+    return { ...data, mine: true };
   };
   sync.deleteShared = async id => { const { error } = await sb.from('shared_foods').delete().eq('id', id); if (error) throw error; };
 
@@ -155,7 +162,9 @@
   };
 
   // ---------- ciclo de vida ----------
+  setTimeout(() => { if (!sync.authReady) { sync.authReady = true; emit(); } }, 5000); // rede lenta: não ficar preso no ecrã de carregamento
   sb.auth.onAuthStateChange((event, session) => {
+    sync.authReady = true;
     const was = sync.user && sync.user.id;
     sync.user = session ? session.user : null;
     if ((sync.user && sync.user.id) !== was) { sync.ready = false; clearTimeout(pushTimer); }

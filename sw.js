@@ -1,5 +1,5 @@
 // Cache para funcionar offline depois da primeira abertura.
-const CACHE = 'macroforge-v6';
+const CACHE = 'macroforge-v7';
 const FILES = ['./', 'index.html', 'privacy.html', 'css/style.css', 'js/i18n.js', 'js/foods.js', 'js/engine.js', 'js/store.js', 'js/vendor/supabase.js', 'js/config.js', 'js/sync.js', 'js/app.js', 'icon.svg', 'manifest.webmanifest',
   ...['hero', 'goal-cutAgg', 'goal-cut', 'goal-maint', 'goal-bulk', 'goal-bulkAgg', 'cat-prot', 'cat-protfat', 'cat-dairy', 'cat-carb',
     'cat-fat', 'cat-veg', 'cat-fruit', 'meal-breakfast', 'meal-snack', 'meal-lunch', 'meal-dinner', 'meal-supper'].map(n => `img/${n}.jpg`)];

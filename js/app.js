@@ -62,6 +62,8 @@
   function render() {
     document.documentElement.lang = S.lang;
     document.documentElement.dataset.theme = S.theme;
+    const gate = gateState();
+    if (gate !== 'app') { $('#app').innerHTML = gateHTML(gate); return; }
     $('#app').innerHTML = shell();
     $('#view').innerHTML = VIEWS[S.tab]();
     AFTER[S.tab]?.();
@@ -141,7 +143,47 @@
       else if (!S.ownerId && await hasLocalData() && !confirm(t('adoptLocal'))) await wipeLocal(); // sem dono: só com o teu sim
       S.ownerId = user.id; MF.store.save(S);
     };
-    MF.sync.on(refreshSyncUI);
+    let lastGate = null;
+    MF.sync.on(() => {
+      const g = gateState();
+      if (g !== lastGate) { lastGate = g; render(); } else if (g === 'app') refreshSyncUI();
+    });
+  }
+
+
+  // ---------------- Entrada obrigatória ----------------
+  function gateState() {
+    const sy = SY();
+    if (!sy) return 'app';                 // sem configuração da nuvem (versão só local): sem login
+    if (!sy.authReady) return 'loading';
+    if (sy.recovering) return 'recover';
+    return sy.user ? 'app' : 'login';
+  }
+  function gateHTML(state) {
+    const langs = `<div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en">EN</button></div>`;
+    let body;
+    if (state === 'loading') body = `<div class="gate-loading"><span class="spinner"></span></div>`;
+    else if (state === 'recover') body = `<h2>${t('accNewPw')}</h2>
+      <form id="newPwForm" class="form"><label>${t('password')}<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+      <button class="btn" type="submit">${t('save')}</button></form><div id="authMsg"></div>`;
+    else body = `<h2>${t('gateTitle')}</h2><p class="muted small">${t('gateHelp')}</p>
+      <form id="authForm" class="form">
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>${t('password')}<input name="password" type="password" minlength="8" required autocomplete="current-password"></label>
+        <button class="btn big-btn" type="submit" value="in">${t('signIn')}</button>
+        <div class="gate-sep"><span>${t('gateNew')}</span></div>
+        <label class="inline consent"><input type="checkbox" name="consent"> <span>${t('consent')} <a href="privacy.html" target="_blank" rel="noopener">${t('privacyLink')}</a></span></label>
+        <button class="btn ghost" type="submit" value="up">${t('signUp')}</button>
+      </form>
+      <button class="linkbtn" data-act="forgot">${t('forgot')}</button>
+      <div id="authMsg"></div>`;
+    return `<div class="gate" style="background-image:linear-gradient(rgba(10,14,12,.55),rgba(10,14,12,.85)),url(img/hero.jpg)">
+      <div class="gate-card">
+        <div class="row between"><div class="brand"><div class="logo">M</div><div><h1>MacroForge</h1><p>${t('tagline')}</p></div></div>${langs}</div>
+        ${body}
+      </div>
+      <div id="toast"></div>
+    </div>`;
   }
 
   // ---------------- Metas ----------------
@@ -298,7 +340,7 @@
       ${LS.tried && LS.tried.length ? `<p class="muted small">${esc(LS.tried.join(' · '))}</p>` : ''}`;
     if (LS.status === 'done') {
       const f = fmap()[LS.savedId]; if (!f) return '';
-      return `<div class="note ok"><span><b>${t('labelAdded', { name: esc(fname(f)) })}</b><br><small>${t('cat_' + f.cat)} · ${macroLine(f)}${LS.food && LS.food.liquid ? ' · ' + t('liquidNote') : ''}</small></span>
+      return `<div class="note ok"><span><b>${t('labelAdded', { name: esc(fname(f)) })}</b><br><small>${esc(t('cat_' + f.cat))} · ${macroLine(f)}${LS.food && LS.food.liquid ? ' · ' + t('liquidNote') : ''}</small></span>
         <span class="row gap"><button class="btn small ghost" data-act="labelEdit">${t('labelEdit')}</button><button class="btn small ghost" data-act="labelUndo">${t('labelUndo')}</button></span></div>`;
     }
     if (LS.status === 'review') {
@@ -335,16 +377,34 @@
     return food;
   }
   const SHARED_PREFIX = 'sh_';
-  const sharedToFood = r => ({ id: SHARED_PREFIX + r.id, sid: r.id, pt: r.name, en: r.name, cat: r.cat, k: +r.k, p: +r.p, c: +r.c, f: +r.f,
-    fb: +r.fb || 0, m: r.m || 'BMS', unit: r.unit || undefined, meas: r.meas || undefined, por: r.por ? +r.por : undefined,
-    shared: true, mine: !!(MF.sync && MF.sync.user && r.created_by === MF.sync.user.id), source: r.source });
+  // Dados de outras pessoas: só passa o que tem a forma esperada (a base de dados também o garante).
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const MEAS_KEYS = ['csopa', 'ccha', 'chav', 'copo', 'punhado', 'clara', 'media', 'metade', 'fatia', 'quadrado'];
+  const fin = (x, a, b) => { const v = +x; return Number.isFinite(v) && v >= a && v <= b ? v : null; };
+  const cleanText = s => (typeof s === 'string' ? s.replace(/[^\p{L}\s.\-]/gu, '').slice(0, 20) : '');
+  function sharedToFood(r) {
+    if (!r || !UUID.test(r.id) || !MF.CATS.includes(r.cat) || typeof r.name !== 'string') return null;
+    const k = fin(r.k, 0, 950), p = fin(r.p, 0, 100), c = fin(r.c, 0, 100), f = fin(r.f, 0, 100);
+    if ([k, p, c, f].includes(null)) return null;
+    const food = { id: SHARED_PREFIX + r.id, sid: r.id, pt: r.name.slice(0, 60), en: r.name.slice(0, 60), cat: r.cat, k, p, c, f,
+      fb: fin(r.fb, 0, 100) || 0, m: /^[BMS]{1,3}$/.test(r.m || '') ? r.m : 'BMS', shared: true, mine: !!r.mine,
+      source: r.source === 'label' ? 'label' : 'manual' };
+    const ug = r.unit && fin(r.unit.g, 0.5, 2000);
+    if (ug) food.unit = { g: ug, pt: cleanText(r.unit.pt) || 'un', en: cleanText(r.unit.en) || 'unit' };
+    if (Array.isArray(r.meas)) {
+      const meas = r.meas.filter(e => Array.isArray(e) && MEAS_KEYS.includes(e[0]) && fin(e[1], 0.5, 500)).map(e => [e[0], +e[1]]).slice(0, 6);
+      if (meas.length) food.meas = meas;
+    }
+    const por = fin(r.por, 1, 2000); if (por) food.por = por;
+    return food;
+  }
   const foodToRow = (f, source) => {
     const row = { name: f.pt.trim(), cat: f.cat, k: Math.round(f.k), p: +f.p, c: +f.c, f: +f.f, fb: +f.fb || 0, m: f.m || 'BMS', source };
     if (f.unit) row.unit = f.unit; if (f.meas) row.meas = f.meas; if (f.por) row.por = f.por;
     return row;
   };
   function setShared(rows) {
-    S.sharedFoods = (rows || []).map(sharedToFood);
+    S.sharedFoods = (rows || []).map(sharedToFood).filter(Boolean);
     save(); if (S.tab === 'foods') { const fl = $('#foodlist'); if (fl) fl.innerHTML = foodList(); }
   }
   // Guardar um alimento: com sessão vai para o catálogo da comunidade; sem sessão (ou se falhar) fica só teu.
@@ -356,6 +416,7 @@
         if (food.sid) res = { row: await sy.updateShared(food.sid, foodToRow(food, source)), created: false, updated: true };
         else res = await sy.publishFood(foodToRow(food, source));
         const sf = sharedToFood(res.row);
+        if (!sf) throw new Error('invalid');
         S.sharedFoods = (S.sharedFoods || []).filter(x => x.id !== sf.id).concat(sf);
         S.customFoods = S.customFoods.filter(x => x.id !== food.id); // se era privado, passa a ser da comunidade
         if (!S.foods[sf.id]) S.pendingNew = (S.pendingNew || 0) + 1;
@@ -470,7 +531,7 @@
   function measName(f, key, count) {
     if (key === 'g') return 'g';
     if (key === 'unit') { const u = S.lang === 'en' ? f.unit.en : f.unit.pt; return esc(u) + (count > 1.01 ? 's' : ''); }
-    return t((count > 1.01 ? 'mp_' : 'ms_') + key);
+    return MEAS_KEYS.includes(key) ? t((count > 1.01 ? 'mp_' : 'ms_') + key) : '';
   }
   const fmtCount = c => { const i = Math.floor(c), h = c - i >= 0.5; return i === 0 && h ? '½' : `${i}${h ? '½' : ''}`; };
   function unitText(f, g) {
@@ -487,7 +548,7 @@
     const val = cur[0] === 'g' ? Math.round(it.g * 10) / 10 : Math.round(it.g / cur[1] * 10) / 10;
     const step = cur[0] === 'g' ? (MF.stepOf(f) >= 10 ? 5 : 1) : 0.5;
     const sel = units.length > 1
-      ? `<select data-act="qtyUnit" data-m="${mi}" data-i="${ii}">${units.map(([k]) => `<option value="${k}" ${k === cur[0] ? 'selected' : ''}>${measName(f, k, 2)}</option>`).join('')}</select>`
+      ? `<select data-act="qtyUnit" data-m="${mi}" data-i="${ii}">${units.map(([k]) => `<option value="${esc(k)}" ${k === cur[0] ? 'selected' : ''}>${esc(measName(f, k, 2))}</option>`).join('')}</select>`
       : '<span>g</span>';
     return `<div class="iqty"><input type="number" inputmode="decimal" min="0" step="${step}" value="${val}" data-act="qty" data-m="${mi}" data-i="${ii}">${sel}</div>`;
   }
@@ -796,7 +857,7 @@
         catch (e) { toast(t('deleteFailed') + ' ' + (e.message || '')); }
       })(); return;
       case 'forgot': {
-        const email = $('#authForm [name=email]')?.value;
+        const email = ($('#authForm [name=email]') || {}).value;
         if (!email) return authMsg(t('accNeedEmail'));
         MF.sync.resetPassword(email).then(({ error }) => authMsg(error ? error.message : t('accResetSent'), !error));
         return;
@@ -899,7 +960,7 @@
     if (e.target.id === 'newPwForm') {
       MF.sync.updatePassword(new FormData(e.target).get('password')).then(({ error }) => {
         if (error) return authMsg(error.message);
-        MF.sync.recovering = false; refreshSyncUI(); toast(t('accPwChanged'));
+        MF.sync.recovering = false; render(); toast(t('accPwChanged'));
       });
       return;
     }
