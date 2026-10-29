@@ -3,7 +3,7 @@
 import { chromium } from 'playwright-core';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-const BAD = fileURLToPath(new URL('./bad-backup.json', import.meta.url));
+const BAD = fileURLToPath(new globalThis.URL('./bad-backup.json', import.meta.url));
 const URL = (process.env.MF_URL || 'http://localhost:8766/');
 const { A_EMAIL, A_PW, B_EMAIL, B_PW } = process.env;
 const b = await chromium.launch({ channel: 'chrome', headless: true });

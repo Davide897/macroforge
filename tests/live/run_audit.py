@@ -35,19 +35,23 @@ try:
     out = subprocess.run([NODE, str(HERE / 'attack_e2e.mjs')], env={**os.environ, 'A_EMAIL': ea, 'A_PW': pa, 'B_EMAIL': eb, 'B_PW': pb}, capture_output=True, text=True, encoding='utf8', timeout=900)
     print('== ataques'); print(out.stdout); print(out.stderr[-1500:])
     # 3) imutável depois de 24 h: envelhecer um alimento de B e tentar mudá-lo/apagá-lo com a sessão de B
-    sql(f"update public.shared_foods set created_at = now() - interval '25 hours' where created_by = '{ids[1]}'")
+    # o gatilho shared_foods_created_at repõe o created_at em qualquer update: desligar os gatilhos só nesta transação
+    sql(f"begin; set local session_replication_role = replica; update public.shared_foods set created_at = now() - interval '25 hours' where created_by = '{ids[1]}'; commit;")
+    aged = admin('GET', f"/rest/v1/shared_foods?created_by=eq.{ids[1]}&created_at=lt.{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - 24 * 3600))}&select=id")[1] or []
+    print('3) alimentos de B envelhecidos para 25 h:', len(aged))
     # sessão de B via palavra-passe
     pub = next(k['api_key'] for k in keys if k.get('type') == 'publishable')
     r = urllib.request.Request(base + '/auth/v1/token?grant_type=password', data=json.dumps({'email': eb, 'password': pb}).encode(), method='POST', headers={'apikey': pub, 'Content-Type': 'application/json'})
     jwt = json.load(urllib.request.urlopen(r, timeout=30))['access_token']
     def asB(method, path, body=None):
-        rq = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, method=method, headers={'apikey': pub, 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json', 'Prefer': 'return=representation'})
+        rq = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, method=method, headers={'apikey': pub, 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'})  # created_by é ilegível: pedir as linhas de volta dava 42501
         try:
-            with urllib.request.urlopen(rq, timeout=30) as resp: return resp.status, json.loads(resp.read() or b'[]')
+            with urllib.request.urlopen(rq, timeout=30) as resp: resp.read(); return resp.status, None
         except urllib.error.HTTPError as e: return e.code, e.read()[:150].decode()
     c, rows = asB('PATCH', '/rest/v1/shared_foods?name=like.Teste%20MF%20Arroz*', {'k': 1})
     c2, rows2 = asB('DELETE', '/rest/v1/shared_foods?name=like.Teste%20MF%20Arroz*')
-    print('3) alimento com mais de 24 h: corrigido', len(rows) if isinstance(rows, list) else rows, '| apagado', len(rows2) if isinstance(rows2, list) else rows2)
+    after = admin('GET', '/rest/v1/shared_foods?name=like.Teste%20MF%20Arroz*&select=k')[1] or []
+    print('3) alimento com mais de 24 h: PATCH', c, '| DELETE', c2, '| continua a existir:', len(after), '| k ainda 900:', all(r['k'] == 900 for r in after) and len(after) > 0)
 finally:
     admin('DELETE', '/rest/v1/shared_foods?name=like.Teste%20MF*')
     for uid in ids:
