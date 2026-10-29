@@ -6,7 +6,7 @@
     "test": "npm run test:unit && npm run test:serve && npm run test:e2e",
     "test:unit": "node --test tests/merge.test.mjs tests/diary.test.mjs",
     "test:serve": "python -m unittest discover -s tests -p \"test_*.py\"",
-    "test:e2e": "node tests/e2e/sync_two_devices.mjs && node tests/e2e/diary.mjs && node tests/e2e/client_security.mjs"
+    "test:e2e": "node tests/e2e/sync_two_devices.mjs && node tests/e2e/diary.mjs && node tests/e2e/client_security.mjs && node tests/e2e/ui_a11y.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.64.1"

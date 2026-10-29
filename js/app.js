@@ -6,6 +6,7 @@
   let foodQuery = '';
 
   const $ = s => document.querySelector(s);
+  const ask = (msg, opts) => MF.ui.confirm(msg, opts); // caixa própria (dialog.js), em vez de confirm()
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const t = (k, v) => MF.t(S.lang, k, v);
   const fname = f => (f ? (S.lang === 'en' ? f.en || f.pt : f.pt) : '?');
@@ -26,10 +27,10 @@
   const hasManual = plan => plan.days.some(d => d.meals.some(m => m.items.some(i => i.locked)));
 
   const ICON = {
-    lock: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3z"/></svg>',
-    unlock: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5h2a3 3 0 1 1 6 0v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5z"/></svg>',
-    x: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>',
-    sun: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5h0v3m0 14v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M2 12h3m14 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2"/></svg>',
+    lock: '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3z"/></svg>',
+    unlock: '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5h2a3 3 0 1 1 6 0v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5z"/></svg>',
+    x: '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>',
+    sun: '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5h0v3m0 14v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M2 12h3m14 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2"/></svg>',
   };
 
   // ---------------- Shell ----------------
@@ -45,20 +46,20 @@
   };
 
   function shell() {
-    const nav = TABS.map(k => `<button class="tab ${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">
-      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="${TAB_ICON[k]}"/></svg><span>${t(TAB_KEY[k])}</span></button>`).join('');
+    const nav = TABS.map(k => `<button class="tab ${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}"${S.tab === k ? ' aria-current="page"' : ''}>
+      <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="${TAB_ICON[k]}"/></svg><span>${t(TAB_KEY[k])}</span></button>`).join('');
     return `<header class="top">
       <div class="brand"><div class="logo">M</div><div><h1>MacroForge</h1><p>${t('tagline')}</p></div></div>
       <div class="tools">
-        <div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en">EN</button></div>
+        <div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt" aria-pressed="${S.lang === 'pt'}" lang="pt" aria-label="Português">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en" aria-pressed="${S.lang === 'en'}" lang="en" aria-label="English">EN</button></div>
         <span class="sync-slot">${syncPill()}</span>
         <a class="icon help-btn" href="ajuda.html" title="${esc(t('help'))}" aria-label="${esc(t('help'))}">?</a>
-        <button class="icon" data-act="theme" title="Theme">${ICON.sun}</button>
+        <button class="icon" data-act="theme" title="${esc(t('theme'))}" aria-label="${esc(t('theme'))}">${ICON.sun}</button>
       </div>
     </header>
     <nav class="tabs">${nav}</nav>
     <main id="view"></main>
-    <div id="toast"></div>`;
+    <div id="toast" role="status" aria-live="polite"></div>`;
   }
 
   function render() {
@@ -148,7 +149,7 @@
     MF.sync.onSignedOut = async ({ pending }) => { if (!pending) { S.ownerId = null; await wipeLocal(); } };
     MF.sync.onUser = async user => {
       if (S.ownerId && S.ownerId !== user.id) await wipeLocal();          // dados de outra conta: nunca passam
-      else if (!S.ownerId && await hasLocalData() && !confirm(t('adoptLocal'))) await wipeLocal(); // sem dono: só com o teu sim
+      else if (!S.ownerId && await hasLocalData() && !(await ask(t('adoptLocal'), { ok: t('adoptOk'), cancel: t('adoptNo'), dismiss: false }))) await wipeLocal(); // sem dono: só com o teu sim
       S.ownerId = user.id;
       // Um aparelho sem dados nunca pode passar por "mais recente" do que a nuvem.
       if (!(await hasLocalData())) MF.store.adopt(S, 0); else MF.store.save(S);
@@ -173,9 +174,9 @@
     return sy.approval === 'approved' ? 'app' : 'pending';
   }
   function gateHTML(state) {
-    const langs = `<div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en">EN</button></div>`;
+    const langs = `<div class="seg"><button class="${S.lang === 'pt' ? 'on' : ''}" data-act="lang" data-v="pt" aria-pressed="${S.lang === 'pt'}" lang="pt" aria-label="Português">PT</button><button class="${S.lang === 'en' ? 'on' : ''}" data-act="lang" data-v="en" aria-pressed="${S.lang === 'en'}" lang="en" aria-label="English">EN</button></div>`;
     let body;
-    if (state === 'loading') body = `<div class="gate-loading"><span class="spinner"></span></div>`;
+    if (state === 'loading') body = `<div class="gate-loading" role="status" aria-label="${esc(t('loading'))}"><span class="spinner"></span></div>`;
     else if (state === 'pending') body = `<h2>${t('pendingTitle')}</h2><p class="muted">${t('pendingText', { email: esc(MF.sync.user.email) })}</p>
       <button class="btn big-btn" data-act="recheck">${t('pendingCheck')}</button>
       <button class="btn ghost" data-act="gateSignOut" style="margin-top:8px">${t('signOut')}</button><div id="authMsg"></div>`;
@@ -202,7 +203,7 @@
         <div class="row between"><div class="brand"><div class="logo">M</div><div><h1>MacroForge</h1><p>${t('tagline')}</p></div></div>${langs}</div>
         ${body}
       </div>
-      <div id="toast"></div>
+      <div id="toast" role="status" aria-live="polite"></div>
     </div>`;
   }
 
@@ -300,14 +301,14 @@
     const chips = ['all', ...MF.CATS].map(c => `<button class="chip ${cat === c ? 'on' : ''}" data-act="cat" data-v="${c}">${c === 'all' ? t('all') : t('cat_' + c)}</button>`).join('');
     return `<section class="card label-card">
       <div class="row between wrap gap"><div><h2>${t('labelTitle')}</h2><p class="muted small">${t('labelHelp')}</p></div>
-        <label class="btn big-btn">${t('labelBtn')}<input type="file" accept="image/*" capture="environment" hidden data-act="labelPhoto"></label></div>
+        <label class="btn big-btn">${t('labelBtn')}<input type="file" accept="image/*" capture="environment" class="vh" data-act="labelPhoto"></label></div>
       <div id="labelBox">${labelBox()}</div>
     </section>
     <section class="card">
       <div class="row between wrap"><div><h2>${t('foodsTitle')}</h2><p class="muted">${t('foodsHelp')} ${t('rawNote')}</p></div>
         <div class="pill big-pill">${t('availableCount', { n: av })}</div></div>
       <div class="row wrap gap">
-        <input class="search" type="search" placeholder="${esc(t('search'))}" value="${esc(foodQuery)}" data-act="search">
+        <input class="search" type="search" placeholder="${esc(t('search'))}" aria-label="${esc(t('search'))}" value="${esc(foodQuery)}" data-act="search">
         <button class="btn" data-act="basics">${t('quickBasics')}</button>
         <button class="btn ghost" data-act="allBuy">${t('allBuy')}</button>
         <button class="btn ghost" data-act="clearSel">${t('clearSel')}</button>
@@ -530,10 +531,10 @@
         <div class="fmain"><b>${esc(fname(f))}</b>${f.custom ? ` <span class="tag">${t('custom')}</span>` : ''}${f.shared ? ` <span class="tag shared">${f.mine ? t('sharedMine') : t('sharedTag')}</span>` : ''}
           <small class="muted">${n(f.k)} kcal · ${t('pS')} ${n(f.p, 1)} · ${t('cS')} ${n(f.c, 1)} · ${t('fS')} ${n(f.f, 1)} <span class="dim">/ 100 g</span></small></div>
         <div class="ftog">
-          <button class="tog like ${st.like ? 'on' : ''}" data-act="like" data-id="${f.id}">${t('like')}</button>
-          <button class="tog buy ${st.buy ? 'on' : ''}" data-act="buy" data-id="${f.id}">${t('buy')}</button>
-          ${f.custom ? `<button class="icon small" data-act="delCustom" data-id="${f.id}" title="${t('del')}">${ICON.x}</button>` : ''}
-          ${f.shared && f.mine ? `<button class="icon small" data-act="delShared" data-id="${f.id}" title="${t('del')}">${ICON.x}</button>` : ''}
+          <button class="tog like ${st.like ? 'on' : ''}" data-act="like" data-id="${f.id}" aria-pressed="${!!st.like}" aria-label="${esc(t('like') + ': ' + fname(f))}">${t('like')}</button>
+          <button class="tog buy ${st.buy ? 'on' : ''}" data-act="buy" data-id="${f.id}" aria-pressed="${!!st.buy}" aria-label="${esc(t('buy') + ': ' + fname(f))}">${t('buy')}</button>
+          ${f.custom ? `<button class="icon small" data-act="delCustom" data-id="${f.id}" title="${t('del')}" aria-label="${esc(t('del') + ': ' + fname(f))}">${ICON.x}</button>` : ''}
+          ${f.shared && f.mine ? `<button class="icon small" data-act="delShared" data-id="${f.id}" title="${t('del')}" aria-label="${esc(t('del') + ': ' + fname(f))}">${ICON.x}</button>` : ''}
         </div></div>`;
     }).join('')}</div>`).join('');
   }
@@ -605,9 +606,9 @@
     const val = cur[0] === 'g' ? Math.round(it.g * 10) / 10 : Math.round(it.g / cur[1] * 10) / 10;
     const step = cur[0] === 'g' ? (MF.stepOf(f) >= 10 ? 5 : 1) : 0.5;
     const sel = units.length > 1
-      ? `<select data-act="qtyUnit" data-m="${mi}" data-i="${ii}">${units.map(([k]) => `<option value="${esc(k)}" ${k === cur[0] ? 'selected' : ''}>${esc(measName(f, k, 2))}</option>`).join('')}</select>`
+      ? `<select data-act="qtyUnit" data-m="${mi}" data-i="${ii}" aria-label="${esc(t('unitOf', { f: fname(f) }))}">${units.map(([k]) => `<option value="${esc(k)}" ${k === cur[0] ? 'selected' : ''}>${esc(measName(f, k, 2))}</option>`).join('')}</select>`
       : '<span>g</span>';
-    return `<div class="iqty"><input type="number" inputmode="decimal" min="0" step="${step}" value="${val}" data-act="qty" data-m="${mi}" data-i="${ii}">${sel}</div>`;
+    return `<div class="iqty"><input type="number" inputmode="decimal" min="0" step="${step}" value="${val}" data-act="qty" data-m="${mi}" data-i="${ii}" aria-label="${esc(t('qtyOf', { f: fname(f) }))}">${sel}</div>`;
   }
   function mealCard(m, mi, fm, av) {
     const tot = MF.totals(m.items, fm);
@@ -620,9 +621,9 @@
         ${qtyField(f, it, mi, ii)}
         <div class="imac muted">${n(f.k * q)} kcal · ${t('pS')} ${n(f.p * q)} · ${t('cS')} ${n(f.c * q)} · ${t('fS')} ${n(f.f * q)}</div>
         <div class="iact">
-          <select data-act="swap" data-m="${mi}" data-i="${ii}" ${alts.length ? '' : 'disabled'} title="${t('swap')}"><option value="">⇄</option>${alts.map(a => `<option value="${a.id}">${esc(fname(a))}</option>`).join('')}</select>
-          <button class="icon small ${it.locked ? 'on' : ''}" data-act="lock" data-m="${mi}" data-i="${ii}" title="${t('lock')}">${it.locked ? ICON.lock : ICON.unlock}</button>
-          <button class="icon small" data-act="remove" data-m="${mi}" data-i="${ii}" title="${t('remove')}">${ICON.x}</button>
+          <select data-act="swap" data-m="${mi}" data-i="${ii}" ${alts.length ? '' : 'disabled'} title="${t('swap')}" aria-label="${esc(t('swap') + ' ' + fname(f))}"><option value="">⇄</option>${alts.map(a => `<option value="${a.id}">${esc(fname(a))}</option>`).join('')}</select>
+          <button class="icon small ${it.locked ? 'on' : ''}" data-act="lock" data-m="${mi}" data-i="${ii}" title="${t('lock')}" aria-label="${esc(t('lock') + ': ' + fname(f))}" aria-pressed="${!!it.locked}">${it.locked ? ICON.lock : ICON.unlock}</button>
+          <button class="icon small" data-act="remove" data-m="${mi}" data-i="${ii}" title="${t('remove')}" aria-label="${esc(t('remove') + ': ' + fname(f))}">${ICON.x}</button>
         </div></div>`;
     }).join('');
     const inMeal = new Set(m.items.map(i => i.id));
@@ -632,7 +633,7 @@
       <div class="meal-banner" style="background-image:url(${IMG.meal(m.name)})">
         <div class="meal-h"><h3>${t(m.name)}</h3><span>${n(tot.k)} kcal · ${t('pS')} ${n(tot.p)} · ${t('cS')} ${n(tot.c)} · ${t('fS')} ${n(tot.f)}</span></div></div>
       ${rows}
-      <select class="add" data-act="addFood" data-m="${mi}"><option value="">${t('addFood')}</option>${MF.CATS.map(c => {
+      <select class="add" data-act="addFood" data-m="${mi}" aria-label="${esc(t('addFood') + ' · ' + t(m.name))}"><option value="">${t('addFood')}</option>${MF.CATS.map(c => {
         const l = addable.filter(a => a.cat === c); return l.length ? `<optgroup label="${t('cat_' + c)}">${l.map(a => `<option value="${a.id}">${esc(fname(a))}</option>`).join('')}</optgroup>` : '';
       }).join('')}${sugIds.length ? `<optgroup label="${t('sugInMeal')}">${sugIds.map(id => `<option value="new:${id}">+ ${esc(fname(fm[id]))}</option>`).join('')}</optgroup>` : ''}</select>
     </section>`;
@@ -831,7 +832,7 @@
         ${ad.assumed ? `<p class="muted small">${t('assumedNote', { k: n(T.kcal) })}</p>` : ''}
         <button class="btn" data-act="applyKcal" data-v="${ad.recommended}">${t('apply')}</button>`;
     const hist = tr.slice().reverse().slice(0, 14).map(e => `<tr><td>${e.date}</td><td>${n(e.kg, 1)}</td><td>${n(e.trend, 1)}</td><td>${e.waist ? n(e.waist, 1) : ''}</td><td>${e.kcal ? n(e.kcal) : ''}</td>
-      <td><button class="icon small" data-act="delWeight" data-v="${e.date}">${ICON.x}</button></td></tr>`).join('');
+      <td><button class="icon small" data-act="delWeight" data-v="${e.date}" title="${esc(t('del'))}" aria-label="${esc(t('delWeightOf', { d: e.date }))}">${ICON.x}</button></td></tr>`).join('');
     return `${accountCard()}<div class="grid2">
       <section class="card">
         <h2>${t('logWeight')}</h2>
@@ -856,9 +857,9 @@
     <section class="card">
       <div class="row between wrap"><div><h2>${t('photosTitle')}</h2><p class="muted small">${t('photosLocal')}</p></div>
         <div class="row gap wrap">
-          <input type="date" id="photoDate" value="${today()}">
-          <select id="photoPose"><option value="front">${t('front')}</option><option value="side">${t('side')}</option><option value="back">${t('back')}</option></select>
-          <label class="btn">${t('addPhotos')}<input type="file" accept="image/*" multiple hidden data-act="photoFiles"></label>
+          <input type="date" id="photoDate" value="${today()}" aria-label="${esc(t('photoDateL'))}">
+          <select id="photoPose" aria-label="${esc(t('pose'))}"><option value="front">${t('front')}</option><option value="side">${t('side')}</option><option value="back">${t('back')}</option></select>
+          <label class="btn">${t('addPhotos')}<input type="file" accept="image/*" multiple class="vh" data-act="photoFiles"></label>
         </div></div>
       <div id="compare"></div>
       <div id="gallery" class="gallery"></div>
@@ -866,7 +867,7 @@
     <section class="card">
       <h2>${t('backupTitle')}</h2><p class="muted small">${t('dataLocal')}</p>
       <div class="row gap"><button class="btn ghost" data-act="export">${t('exportB')}</button>
-      <label class="btn ghost">${t('importB')}<input type="file" accept="application/json" hidden data-act="import"></label></div>
+      <label class="btn ghost">${t('importB')}<input type="file" accept="application/json" class="vh" data-act="import"></label></div>
     </section>`;
   }
 
@@ -884,7 +885,7 @@
     for (let y = y0; y <= y1 + 1e-9; y += stepY) grid.push(`<line x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}" class="gl"/><text x="${L - 6}" y="${Y(y) + 4}" text-anchor="end">${n(y, stepY % 1 ? 1 : 0)}</text>`);
     const pts = tr.map(e => `<circle cx="${X(dayNum(e.date))}" cy="${Y(e.kg)}" r="3" class="raw"/>`).join('');
     const line = tr.map(e => `${X(dayNum(e.date)).toFixed(1)},${Y(e.trend).toFixed(1)}`).join(' ');
-    return `<svg viewBox="0 0 ${W} ${H}" class="wchart" role="img">
+    return `<svg viewBox="0 0 ${W} ${H}" class="wchart" role="img" aria-label="${esc(t('chartAria', { a: tr[0].date, b: tr[tr.length - 1].date, k0: n(tr[0].trend, 1), k1: n(tr[tr.length - 1].trend, 1) }))}">
       ${grid.join('')}
       <polyline points="${line}" class="trend"/>${pts}
       <text x="${L}" y="${H - 6}">${tr[0].date}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${tr[tr.length - 1].date}</text>
@@ -901,8 +902,8 @@
     const url = p => { const u = URL.createObjectURL(p.blob); photoURLs.push(u); return u; };
     if (!list.length) { gal.innerHTML = `<p class="muted">${t('noPhotos')}</p>`; $('#compare').innerHTML = ''; return; }
     const urls = Object.fromEntries(list.map(p => [p.id, url(p)]));
-    gal.innerHTML = list.map(p => `<figure><img src="${urls[p.id]}" alt="" loading="lazy"><figcaption>${p.date} · ${t(p.pose)}
-      <button class="icon small" data-act="delPhoto" data-id="${p.id}">${ICON.x}</button></figcaption></figure>`).join('');
+    gal.innerHTML = list.map(p => `<figure><img src="${urls[p.id]}" alt="${esc(t('photoAlt', { pose: t(p.pose), d: p.date }))}" loading="lazy"><figcaption>${p.date} · ${t(p.pose)}
+      <button class="icon small" data-act="delPhoto" data-id="${p.id}" title="${esc(t('del'))}" aria-label="${esc(t('delPhotoOf', { pose: t(p.pose), d: p.date }))}">${ICON.x}</button></figcaption></figure>`).join('');
     // Comparar: escolhe a pose, por defeito a mais antiga vs a mais recente
     const cmp = S.ui.cmp || {};
     const pose = cmp.pose && list.some(p => p.pose === cmp.pose) ? cmp.pose : list[0].pose;
@@ -912,9 +913,9 @@
     const b = ofPose.find(p => p.id === cmp.b) || ofPose[ofPose.length - 1];
     const opts = cur => ofPose.map(p => `<option value="${p.id}" ${sel(p.id === cur.id)}>${p.date}</option>`).join('');
     $('#compare').innerHTML = `<h3>${t('compare')}</h3>
-      <div class="row gap wrap"><select data-act="cmpPose">${['front', 'side', 'back'].filter(ps => list.some(p => p.pose === ps)).map(ps => `<option value="${ps}" ${sel(ps === pose)}>${t(ps)}</option>`).join('')}</select>
+      <div class="row gap wrap"><select data-act="cmpPose" aria-label="${esc(t('pose'))}">${['front', 'side', 'back'].filter(ps => list.some(p => p.pose === ps)).map(ps => `<option value="${ps}" ${sel(ps === pose)}>${t(ps)}</option>`).join('')}</select>
       <label>${t('before')} <select data-act="cmpA">${opts(a)}</select></label><label>${t('after')} <select data-act="cmpB">${opts(b)}</select></label></div>
-      <div class="cmp"><figure><img src="${urls[a.id]}"><figcaption>${t('before')} · ${a.date}</figcaption></figure><figure><img src="${urls[b.id]}"><figcaption>${t('after')} · ${b.date}</figcaption></figure></div>`;
+      <div class="cmp"><figure><img src="${urls[a.id]}" alt="${esc(t('before') + ' · ' + t(pose) + ' · ' + a.date)}"><figcaption>${t('before')} · ${a.date}</figcaption></figure><figure><img src="${urls[b.id]}" alt="${esc(t('after') + ' · ' + t(pose) + ' · ' + b.date)}"><figcaption>${t('after')} · ${b.date}</figcaption></figure></div>`;
   }
 
   async function exportAll() {
@@ -969,14 +970,18 @@
       case 'clearSel': S.foods = {}; break;
       case 'delShared': {
         const f0 = fmap()[id];
-        if (!f0 || !f0.mine || !confirm(t('confirmDelShared'))) return;
-        MF.sync.deleteShared(f0.sid).then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView(); })
-          .catch(() => toast(t('sharedFailed')));
+        if (!f0 || !f0.mine) return;
+        ask(t('confirmDelShared'), { ok: t('del'), danger: true }).then(ok => ok && MF.sync.deleteShared(f0.sid)
+          .then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView(); })
+          .catch(() => toast(t('sharedFailed'))));
         return;
       }
       case 'delCustom':
-        if (!confirm(t('confirmDel'))) return;
-        S.customFoods = S.customFoods.filter(f => f.id !== id); delete S.foods[id]; break;
+        ask(t('confirmDel'), { ok: t('del'), danger: true }).then(ok => {
+          if (!ok) return;
+          S.customFoods = S.customFoods.filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView();
+        });
+        return;
       case 'meals': S.profile.meals = +v; save(); if (S.plan) generate(); else rerenderView(); return;
       case 'days': S.profile.days = +v; save(); if (S.plan) generate(); else rerenderView(); return;
       case 'generate': generate(); return;
@@ -1002,20 +1007,24 @@
       case 'diaryFromPlan': toast(t('diaryCopied', { n: diaryFromPlan(v) })); break;
       case 'delWeight': S.weights = S.weights.filter(w => w.date !== v); break;
       case 'applyKcal': Object.assign(S.profile, { kcalOverride: +v, mode: 'kcal' }); save(); rerenderView(); toast(t('applied')); return;
-      case 'delPhoto': if (confirm(t('confirmDelPhoto'))) MF.photos.del(id).then(() => { if (SY()) MF.sync.photoDeleted(id); renderPhotos(); }); return;
+      case 'delPhoto':
+        ask(t('confirmDelPhoto'), { ok: t('del'), danger: true }).then(ok => ok && MF.photos.del(id)
+          .then(() => { if (SY()) MF.sync.photoDeleted(id); renderPhotos(); }).catch(() => toast(t('photoDelFailed'))));
+        return;
       case 'account': if (S.tab !== 'progress') { S.tab = 'progress'; save(); render(); } setTimeout(() => $('#account')?.scrollIntoView({ behavior: 'smooth' }), 50); return;
       case 'syncNow': MF.sync.now(); return;
       case 'recheck': MF.sync.recheck().then(st => { if (st !== 'approved') authMsg(t('pendingStill'), true); }); return;
       case 'gateSignOut': MF.sync.signOut().then(() => wipeLocal()); return;
       case 'signOut': (async () => {
-        if (!confirm(t('signOutConfirm'))) return;
+        if (!(await ask(t('signOutConfirm'), { ok: t('signOut') }))) return;
         await MF.sync.now();
-        if (MF.sync.status !== 'ok' && !confirm(t('signOutUnsynced'))) return;
+        if (MF.sync.status !== 'ok' && !(await ask(t('signOutUnsynced'), { ok: t('signOut'), danger: true }))) return;
         await MF.sync.signOut(); await wipeLocal(); toast(t('signedOut'));
       })(); return;
       case 'deleteAccount': (async () => {
         const word = t('deleteWord');
-        if (prompt(t('deleteConfirm', { w: word })) !== word) return toast(t('deleteCancelled'));
+        const typed = await MF.ui.prompt(t('deleteWarn'), { ok: t('deleteAccountBtn'), danger: true, input: { expect: word, label: t('deleteConfirm', { w: word }) } });
+        if (typed !== word) return toast(t('deleteCancelled'));
         try { await MF.sync.deleteAccount(); await wipeLocal(); toast(t('deleteDone')); }
         catch (e) { toast(t('deleteFailed') + ' ' + (e.message || '')); }
       })(); return;

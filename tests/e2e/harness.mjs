@@ -74,19 +74,20 @@ const URL0 = `http://127.0.0.1:${server.address().port}/`;
 
 // ---------- aparelhos ----------
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
-export const errors = [], alerts = [], external = [];
-// opts.session = 'none': abre no ecrã de entrada, sem sessão · opts.before(page): antes de abrir a app
+export const errors = [], alerts = [], external = [], nativeDialogs = [];
+// opts.session = 'none': abre no ecrã de entrada, sem sessão · opts.seed: estado local já guardado neste aparelho
 export async function device(name, opts = {}) {
   const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1200, height: 900 } });
-  await ctx.addInitScript(([n, none]) => {
+  await ctx.addInitScript(([n, none, seed]) => {
     if (sessionStorage.getItem('fake.init')) return;          // só na primeira abertura deste aparelho
     sessionStorage.setItem('fake.init', '1');
     localStorage.setItem('fake.device', n);
     if (none) localStorage.setItem('fake.session', 'none');
-  }, [name, opts.session === 'none']);
+    if (seed) localStorage.setItem('macroforge.v1', seed);
+  }, [name, opts.session === 'none', opts.seed ? JSON.stringify(opts.seed) : null]);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(`${name}: ${e.message}`));
-  p.on('dialog', d => { if (d.type() === 'alert') alerts.push(`${name}: ${d.message()}`); d.accept(); });
+  p.on('dialog', d => { (d.type() === 'alert' ? alerts : nativeDialogs).push(`${name}: ${d.type()} ${d.message().slice(0, 60)}`); d.accept(); });
   p.on('request', r => { if (!r.url().startsWith(URL0) && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) external.push(r.url()); });
   await p.goto(URL0);
   if (opts.session !== 'none') await synced(p);
@@ -114,6 +115,7 @@ export function check(label, ok, detail = '') { console.log(`${ok ? 'OK  ' : 'FA
 
 export async function finish() {
   check('sem erros JavaScript nas páginas', errors.length === 0, errors.join(' ; '));
+  check('nenhuma caixa nativa do browser (confirm/prompt)', nativeDialogs.length === 0, nativeDialogs.join(' ; '));
   check('nenhum alerta disparado e nenhum pedido para fora da app', alerts.length === 0 && external.length === 0, [...alerts, ...external].join(' ; '));
   await browser.close(); server.close();
   console.log(result.failed ? `${result.failed} verificação(ões) falharam` : 'tudo OK');
