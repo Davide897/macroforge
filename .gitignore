@@ -2,3 +2,5 @@ img/original/
 __pycache__/
 *.log
 .DS_Store
+node_modules/
+tests/live/bad-backup.json
