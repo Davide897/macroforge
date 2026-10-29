@@ -14,6 +14,7 @@
     customFoods: [],
     plan: null, dayIdx: 0,
     weights: [],        // { date, kg, waist, kcal }
+    diary: {},          // "<data>/<id>" -> entrada do diário alimentar (diary.js)
     shopChecked: {},
     dismissed: {},      // sugestões que o utilizador recusou
     pendingNew: 0,      // alimentos juntados desde a última geração

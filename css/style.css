@@ -312,3 +312,13 @@ details.danger summary::before { content: ""; }
 
 .help-btn { text-decoration: none; font-weight: 800; color: var(--text); }
 .gate .help-link { display: block; margin-top: 8px; color: var(--accent); }
+/* Diário alimentar */
+.diary-nav { align-items: center; }
+.diary-nav input[type=date] { width: auto; }
+.diary-date { margin: 4px 0 10px; font-weight: 600; }
+.diary-date::first-letter { text-transform: uppercase; }
+.diary-add { padding: 10px 12px 12px; align-items: center; }
+.diary-add select { flex: 1 1 200px; min-width: 0; }
+.diary-add input[type=number] { width: 90px; }
+.diary-empty { padding: 8px 12px 0; margin: 0; }
+.hist tr.on td { background: color-mix(in srgb, var(--accent) 12%, transparent); }

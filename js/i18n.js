@@ -3,7 +3,14 @@
   const D = {
     pt: {
       tagline: 'Dietas de cut e bulk à tua medida',
-      tabGoals: 'Metas', tabFoods: 'Alimentos', tabPlan: 'Dieta', tabShop: 'Compras', tabProgress: 'Progresso',
+      tabGoals: 'Metas', tabFoods: 'Alimentos', tabPlan: 'Dieta', tabDiary: 'Diário', tabShop: 'Compras', tabProgress: 'Progresso',
+      // Diário alimentar
+      diaryTitle: 'Diário alimentar', diaryHelp: 'Regista o que comeste de facto. Cada registo guarda os valores do alimento nesse momento.',
+      diaryPrev: 'Dia anterior', diaryNext: 'Dia seguinte', diaryToday: 'Hoje', diaryMine: 'Os teus alimentos',
+      diaryAddFood: 'Escolhe um alimento', diaryGrams: 'Quantidade em gramas', diaryAdd: 'Juntar',
+      diaryFromPlan: 'Copiar do plano', diaryFromPlanDay: 'Copiar o dia {d} do plano', diaryCopied: '{n} alimentos copiados do plano.',
+      diaryEmptyMeal: 'Nada registado nesta refeição.', diaryRecent: 'Últimos 7 dias', diaryOfTarget: '{p}% da meta',
+      diaryDeleted: 'Registo apagado.', diaryRemove: 'Apagar registo',
       // Perfil
       profile: 'Perfil', sex: 'Sexo', male: 'Masculino', female: 'Feminino', age: 'Idade', height: 'Altura (cm)',
       weight: 'Peso (kg)', bodyfat: 'Gordura corporal % (opcional)', activity: 'Atividade (só para comparar com Mifflin)',
@@ -167,7 +174,14 @@
     },
     en: {
       tagline: 'Cut and bulk diets built around you',
-      tabGoals: 'Targets', tabFoods: 'Foods', tabPlan: 'Diet', tabShop: 'Shopping', tabProgress: 'Progress',
+      tabGoals: 'Targets', tabFoods: 'Foods', tabPlan: 'Diet', tabDiary: 'Diary', tabShop: 'Shopping', tabProgress: 'Progress',
+      // Food diary
+      diaryTitle: 'Food diary', diaryHelp: 'Log what you actually ate. Each entry keeps the food values from that moment.',
+      diaryPrev: 'Previous day', diaryNext: 'Next day', diaryToday: 'Today', diaryMine: 'Your foods',
+      diaryAddFood: 'Choose a food', diaryGrams: 'Amount in grams', diaryAdd: 'Add',
+      diaryFromPlan: 'Copy from plan', diaryFromPlanDay: 'Copy plan day {d}', diaryCopied: '{n} foods copied from the plan.',
+      diaryEmptyMeal: 'Nothing logged for this meal.', diaryRecent: 'Last 7 days', diaryOfTarget: '{p}% of target',
+      diaryDeleted: 'Entry deleted.', diaryRemove: 'Delete entry',
       profile: 'Profile', sex: 'Sex', male: 'Male', female: 'Female', age: 'Age', height: 'Height (cm)',
       weight: 'Weight (kg)', bodyfat: 'Body fat % (optional)', activity: 'Activity (only to compare with Mifflin)',
       act0: 'Sedentary', act1: 'Light (1–3 sessions/wk)', act2: 'Moderate (3–5 sessions/wk)', act3: 'High (6–7 sessions/wk)', act4: 'Very high (physical job + training)',

@@ -15,7 +15,7 @@
   const targets = () => MF.computeTargets(S.profile);
   const save = () => MF.store.save(S);
   const n = (x, d = 0) => Number(x).toLocaleString(S.lang === 'en' ? 'en-GB' : 'pt-PT', { maximumFractionDigits: d, minimumFractionDigits: d });
-  const today = () => new Date().toISOString().slice(0, 10);
+  const today = () => MF.diary.localDate(); // data local: em Portugal, depois da meia-noite já é o dia seguinte
   const dayNum = d => Math.floor(new Date(d + 'T12:00:00').getTime() / 86400000);
   const sel = c => (c ? 'selected' : '');
   const chk = c => (c ? 'checked' : '');
@@ -33,12 +33,13 @@
   };
 
   // ---------------- Shell ----------------
-  const TABS = ['goals', 'foods', 'plan', 'shop', 'progress'];
-  const TAB_KEY = { goals: 'tabGoals', foods: 'tabFoods', plan: 'tabPlan', shop: 'tabShop', progress: 'tabProgress' };
+  const TABS = ['goals', 'foods', 'plan', 'diary', 'shop', 'progress'];
+  const TAB_KEY = { goals: 'tabGoals', foods: 'tabFoods', plan: 'tabPlan', diary: 'tabDiary', shop: 'tabShop', progress: 'tabProgress' };
   const TAB_ICON = {
     goals: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
     foods: 'M7 2v9a3 3 0 0 0 2 2.8V22h2v-8.2A3 3 0 0 0 13 11V2h-2v7h-1V2H9v7H8V2zm9 0c-1.7 0-3 2.2-3 5v6h2v9h2V2z',
     plan: 'M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h10v2H4z',
+    diary: 'M6 2h11a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 4v2h8V6zm0 4v2h8v-2zm0 4v2h5v-2z',
     shop: 'M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM3 2h3l2.7 11.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L22 6H7.2L6.6 3.6A2 2 0 0 0 4.7 2z',
     progress: 'M3 20h18v2H3zM5 17l4-6 4 3 6-9 1.6 1.2-7.1 10.6-4-3-2.9 4.4z',
   };
@@ -419,6 +420,7 @@
     s.photoDeleted = pd;
     const ck = {}; for (const [k, v] of Object.entries(s.clock && typeof s.clock === 'object' ? s.clock : {})) if (k.length <= 120 && num(v, 0, 9e15) !== null) ck[k] = +v;
     s.clock = ck; // horas de alteração por registo (merge.js)
+    s.diary = MF.diary.sanitize(s.diary);
     if (s.plan && Array.isArray(s.plan.days)) {
       s.plan.days = s.plan.days.filter(d => d && Array.isArray(d.meals)).map(d => ({ meals: d.meals.filter(m => m && MEAL_NAMES_OK.includes(m.name) && ['B', 'M', 'S'].includes(m.type))
         .map(m => ({ type: m.type, name: m.name, items: (Array.isArray(m.items) ? m.items : []).filter(i => i && SAFE_ID.test(i.id) && num(i.g, 0, 5000) !== null)
@@ -685,6 +687,101 @@
     save(); rerenderView();
   }
 
+  // ---------------- Diário ----------------
+  const DY = () => MF.diary;
+  const diaryDate = () => (S.ui.diaryDate && DY().DATE.test(S.ui.diaryDate) ? S.ui.diaryDate : today());
+  const isBase = id => MF.FOODS.some(f => f.id === id);
+  const entryName = (e, fm) => (fm[e.f] ? fname(fm[e.f]) : e.n || '?');
+  const pctOf = (v, tg) => (tg ? Math.round(v / tg * 100) : 0);
+  function macroBar(label, v, tg, unit, cls) {
+    const pct = tg ? v / tg : 0, ok = Math.abs(pct - 1) <= 0.07;
+    return `<div class="bar ${cls}"><div class="bl"><span>${label}</span><b class="${ok ? 'ok' : 'off'}">${n(v)}<small> / ${n(tg)} ${unit}</small></b></div>
+      <div class="track"><div style="width:${Math.min(100, pct * 100)}%"></div></div></div>`;
+  }
+  // Refeições a mostrar: as do esquema de refeições da pessoa, mais as que já tenham registos nesse dia
+  function diaryMeals(list) {
+    const T = targets(), p = S.profile;
+    const names = MF.MEAL_NAMES[p.meals || MF.recommendMeals(T, p.weight).ideal] || MF.MEAL_NAMES[4];
+    return DY().MEALS.filter(m => names.includes(m) || list.some(e => e.m === m));
+  }
+  function diaryFoodOptions() {
+    const av = available(), avIds = new Set(av.map(f => f.id)), all = allFoods();
+    const opt = f => `<option value="${esc(f.id)}">${esc(fname(f))}</option>`;
+    const mine = av.length ? `<optgroup label="${esc(t('diaryMine'))}">${av.map(opt).join('')}</optgroup>` : '';
+    return mine + MF.CATS.map(c => { const l = all.filter(f => f.cat === c && !avIds.has(f.id)); return l.length ? `<optgroup label="${esc(t('cat_' + c))}">${l.map(opt).join('')}</optgroup>` : ''; }).join('');
+  }
+  function viewDiary() {
+    const date = diaryDate(), T = targets(), fm = fmap();
+    const list = DY().day(S.diary, date), tot = DY().totals(list);
+    const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString(S.lang === 'en' ? 'en-GB' : 'pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+    const opts = diaryFoodOptions();
+    const di = S.plan ? clamp(S.dayIdx, 0, S.plan.days.length - 1) : 0;
+    const planDay = S.plan && S.plan.days[di];
+    const head = `<section class="card">
+      <div class="row between wrap gap"><div><h2>${t('diaryTitle')}</h2><p class="muted small">${t('diaryHelp')}</p></div>
+        <div class="row gap wrap diary-nav">
+          <button class="btn small ghost" data-act="diaryShift" data-v="-1" aria-label="${esc(t('diaryPrev'))}" title="${esc(t('diaryPrev'))}">‹</button>
+          <input type="date" value="${date}" data-act="diaryDate" aria-label="${esc(t('date'))}">
+          <button class="btn small ghost" data-act="diaryShift" data-v="1" aria-label="${esc(t('diaryNext'))}" title="${esc(t('diaryNext'))}">›</button>
+          ${date !== today() ? `<button class="btn small" data-act="diaryToday">${t('diaryToday')}</button>` : ''}
+        </div></div>
+      <p class="diary-date">${esc(dateLabel)}</p>
+      <div class="bars">${macroBar('kcal', tot.k, T.kcal, '', 'k')}${macroBar(t('protein'), tot.p, T.p, 'g', 'p')}${macroBar(t('carbs'), tot.c, T.c, 'g', 'c')}${macroBar(t('fat'), tot.f, T.f, 'g', 'f')}</div>
+      ${planDay ? `<div class="row gap wrap"><button class="btn ghost" data-act="diaryFromPlan">${t('diaryFromPlanDay', { d: di + 1 })}</button></div>` : ''}
+    </section>`;
+    const meals = diaryMeals(list).map(m => {
+      const items = list.filter(e => e.m === m), mt = DY().totals(items);
+      const inPlan = planDay && planDay.meals.some(pm => pm.name === m && pm.items.length);
+      const rows = items.map(e => {
+        const f = fm[e.f], q = e.g / 100;
+        return `<div class="item">
+          <div class="iname"><b>${esc(entryName(e, fm))}</b><small class="muted">${f ? unitText(f, e.g) : ''}</small></div>
+          <div class="iqty"><input type="number" inputmode="decimal" min="0" step="1" value="${e.g}" data-act="diaryQty" data-k="${esc(e.key)}" aria-label="${esc(t('diaryGrams'))}"><span>g</span></div>
+          <div class="imac muted">${n(e.v[0] * q)} kcal · ${t('pS')} ${n(e.v[1] * q)} · ${t('cS')} ${n(e.v[2] * q)} · ${t('fS')} ${n(e.v[3] * q)}</div>
+          <div class="iact"><button class="icon small" data-act="diaryDel" data-k="${esc(e.key)}" aria-label="${esc(t('diaryRemove'))}" title="${esc(t('diaryRemove'))}">${ICON.x}</button></div>
+        </div>`;
+      }).join('');
+      return `<section class="card meal">
+        <div class="meal-banner" style="background-image:url(${IMG.meal(m)})">
+          <div class="meal-h"><h3>${t(m)}</h3><span>${n(mt.k)} kcal · ${t('pS')} ${n(mt.p)} · ${t('cS')} ${n(mt.c)} · ${t('fS')} ${n(mt.f)}</span></div></div>
+        ${rows || `<p class="muted small diary-empty">${t('diaryEmptyMeal')}</p>`}
+        <form class="diary-add row gap wrap" data-meal="${m}">
+          <select name="food" required aria-label="${esc(t('diaryAddFood'))}"><option value="">${t('diaryAddFood')}</option>${opts}</select>
+          <input name="g" type="number" inputmode="decimal" min="1" max="5000" step="1" placeholder="g" aria-label="${esc(t('diaryGrams'))}">
+          <button class="btn small" type="submit">${t('diaryAdd')}</button>
+          ${inPlan ? `<button class="btn small ghost" type="button" data-act="diaryFromPlan" data-v="${m}">${t('diaryFromPlan')}</button>` : ''}
+        </form>
+      </section>`;
+    }).join('');
+    const rec = DY().recent(S.diary, today(), 7);
+    const recent = rec.some(d => d.count) ? `<section class="card"><h2>${t('diaryRecent')}</h2>
+      <table class="hist"><thead><tr><th>${t('date')}</th><th>kcal</th><th>${t('pS')}</th><th>${t('cS')}</th><th>${t('fS')}</th><th></th></tr></thead><tbody>
+      ${rec.map(d => `<tr class="${d.date === date ? 'on' : ''}"><td><button class="linkbtn" data-act="diaryGo" data-v="${d.date}">${d.date}</button></td>
+        <td>${d.count ? n(d.k) : '—'}</td><td>${d.count ? n(d.p) : ''}</td><td>${d.count ? n(d.c) : ''}</td><td>${d.count ? n(d.f) : ''}</td>
+        <td class="muted small">${d.count ? t('diaryOfTarget', { p: pctOf(d.k, T.kcal) }) : ''}</td></tr>`).join('')}
+      </tbody></table></section>` : '';
+    return head + `<div class="meals">${meals}</div>` + recent;
+  }
+  function diaryAdd(meal, foodId, g) {
+    const f = fmap()[foodId]; if (!f || !DY().MEALS.includes(meal)) return false;
+    S.diary[DY().key(diaryDate())] = DY().entry(f, meal, g > 0 ? g : MF.defaultG(f), !isBase(f.id));
+    return true;
+  }
+  // Copia para o diário as quantidades do dia do plano escolhido no separador Dieta (uma refeição ou todas)
+  function diaryFromPlan(meal) {
+    const plan = S.plan; if (!plan) return 0;
+    const day = plan.days[clamp(S.dayIdx, 0, plan.days.length - 1)], fm = fmap();
+    let count = 0;
+    for (const m of day.meals) {
+      if (meal && m.name !== meal) continue;
+      for (const it of m.items) {
+        const f = fm[it.id]; if (!f || !(it.g > 0)) continue;
+        S.diary[DY().key(diaryDate())] = DY().entry(f, m.name, it.g, !isBase(f.id)); count++;
+      }
+    }
+    return count;
+  }
+
   // ---------------- Compras ----------------
   function shopData() {
     const plan = S.plan, fm = fmap(), tot = {};
@@ -844,7 +941,7 @@
     } catch (e) { toast(t('importFail')); }
   }
 
-  const VIEWS = { goals: viewGoals, foods: viewFoods, plan: viewPlan, shop: viewShop, progress: viewProgress };
+  const VIEWS = { goals: viewGoals, foods: viewFoods, plan: viewPlan, diary: viewDiary, shop: viewShop, progress: viewProgress };
   const AFTER = { progress: renderPhotos };
 
   // ---------------- Eventos ----------------
@@ -898,6 +995,11 @@
         return;
       }
       case 'resetChecks': S.shopChecked = {}; break;
+      case 'diaryShift': S.ui.diaryDate = MF.diary.shift(diaryDate(), +v); break;
+      case 'diaryToday': S.ui.diaryDate = null; break;
+      case 'diaryGo': if (MF.diary.DATE.test(v)) S.ui.diaryDate = v; break;
+      case 'diaryDel': if (!S.diary[el.dataset.k]) return; delete S.diary[el.dataset.k]; toast(t('diaryDeleted')); break;
+      case 'diaryFromPlan': toast(t('diaryCopied', { n: diaryFromPlan(v) })); break;
       case 'delWeight': S.weights = S.weights.filter(w => w.date !== v); break;
       case 'applyKcal': Object.assign(S.profile, { kcalOverride: +v, mode: 'kcal' }); save(); rerenderView(); toast(t('applied')); return;
       case 'delPhoto': if (confirm(t('confirmDelPhoto'))) MF.photos.del(id).then(() => { if (SY()) MF.sync.photoDeleted(id); renderPhotos(); }); return;
@@ -984,6 +1086,13 @@
         const f = fmap()[fid];
         S.plan.days[S.dayIdx].meals[+el.dataset.m].items.push({ id: f.id, g: MF.defaultG(f) }); resolveDay(S.dayIdx); break;
       }
+      case 'diaryDate': if (!MF.diary.DATE.test(el.value)) return; S.ui.diaryDate = el.value; break;
+      case 'diaryQty': {
+        const en = S.diary[el.dataset.k]; if (!en) return;
+        const v = parseFloat(el.value);
+        if (v > 0 && v <= 5000) en.g = Math.round(v * 10) / 10;
+        break;
+      }
       case 'shopCheck': S.shopChecked[el.dataset.id] = el.checked; save(); el.closest('li').classList.toggle('done', el.checked); return;
       case 'photoFiles': {
         const date = $('#photoDate').value || today(), pose = $('#photoPose').value;
@@ -1023,6 +1132,11 @@
         if (error) return authMsg(error.message);
         MF.sync.recovering = false; render(); toast(t('accPwChanged'));
       });
+      return;
+    }
+    if (e.target.classList.contains('diary-add')) {
+      const fd = new FormData(e.target);
+      if (diaryAdd(e.target.dataset.meal, fd.get('food'), parseFloat(fd.get('g')))) { save(); rerenderView(); }
       return;
     }
     const fd = new FormData(e.target), g = k => fd.get(k);

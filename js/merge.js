@@ -9,7 +9,7 @@
 
   // Coleções guardadas por registo, e como se tira a chave de cada elemento
   const LISTS = { weights: w => w && w.date, customFoods: f => f && f.id, photoMeta: p => p && p.id };
-  const MAPS = ['foods', 'dismissed', 'shopChecked', 'photoDeleted'];
+  const MAPS = ['foods', 'dismissed', 'shopChecked', 'photoDeleted', 'diary'];   // diary: uma unidade por entrada (diary:<data>/<id>)
   const FIELDS = ['profile'];   // objetos fundidos campo a campo (mudar o objetivo num aparelho e a idade noutro: ficam os dois)
   const SEP = ':';
 
