@@ -417,6 +417,8 @@
     s.photoMeta = (Array.isArray(s.photoMeta) ? s.photoMeta : []).filter(p => p && SAFE_ID.test(p.id) && DATE.test(p.date) && POSES.includes(p.pose));
     const pd = {}; for (const [k, v] of Object.entries(s.photoDeleted || {})) if (SAFE_ID.test(k) && num(v, 0, 9e15)) pd[k] = +v;
     s.photoDeleted = pd;
+    const ck = {}; for (const [k, v] of Object.entries(s.clock && typeof s.clock === 'object' ? s.clock : {})) if (k.length <= 120 && num(v, 0, 9e15) !== null) ck[k] = +v;
+    s.clock = ck; // horas de alteração por registo (merge.js)
     if (s.plan && Array.isArray(s.plan.days)) {
       s.plan.days = s.plan.days.filter(d => d && Array.isArray(d.meals)).map(d => ({ meals: d.meals.filter(m => m && MEAL_NAMES_OK.includes(m.name) && ['B', 'M', 'S'].includes(m.type))
         .map(m => ({ type: m.type, name: m.name, items: (Array.isArray(m.items) ? m.items : []).filter(i => i && SAFE_ID.test(i.id) && num(i.g, 0, 5000) !== null)

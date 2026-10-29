@@ -32,45 +32,61 @@
   sync.updatePassword = password => sb.auth.updateUser({ password });
 
   // ---------- estado ----------
-  let getState = null, pushTimer = null, pulling = false, pendingPush = false;
+  let getState = null, pushTimer = null, pendingPush = false;
   sync.attach = fn => { getState = fn; };
 
-  async function pull() {
-    if (!sync.user || pulling) return;
-    pulling = true; set('status', 'syncing');
-    try {
-      const { data, error } = await sb.from('app_state').select('state, updated_at').eq('user_id', sync.user.id).maybeSingle();
+  // Junta registo a registo com a versão do servidor e só escreve por cima da versão que juntou (merge.js).
+  // Nenhum aparelho apaga o que outro mudou, mesmo que os dois tenham estado offline.
+  const uid = () => sync.user.id;
+  const core = MF.merge.createStateSync({
+    fetch: async () => {
+      const { data, error } = await sb.from('app_state').select('state, updated_at').eq('user_id', uid()).maybeSingle();
       if (error) throw error;
-      const local = getState && getState();
-      if (data && (!local || (data.updated_at || 0) > (local.updatedAt || 0))) {
-        if (sync.onRemote) await sync.onRemote(data.state, data.updated_at);
-      } else if (local) {
-        sync.ready = true; await push(true);
-      }
+      return data;
+    },
+    insert: async (state, v) => {
+      const { error } = await sb.from('app_state').insert({ user_id: uid(), state, updated_at: v });
+      if (error && error.code === '23505') return 'conflict';   // outro aparelho criou a linha primeiro
+      if (error) throw error;
+      return 'ok';
+    },
+    cas: async (state, v, base) => {
+      const { data, error } = await sb.from('app_state').update({ state, updated_at: v })
+        .eq('user_id', uid()).eq('updated_at', base).select('updated_at');
+      if (error) throw error;
+      return Array.isArray(data) && data.length > 0;
+    },
+    getLocal: () => { const s = getState(); return { payload: MF.store.payload(s), updatedAt: s.updatedAt || 0 }; },
+    apply: (state, v) => sync.onRemote && sync.onRemote(state, v),
+  });
+  // Uma operação de cada vez: puxar e enviar nunca se cruzam neste aparelho
+  let queue = Promise.resolve();
+  const serial = fn => (queue = queue.then(fn, fn));
+  const fail = e => { set('error', e.message || String(e)); set('status', navigator.onLine ? 'error' : 'offline'); };
+
+  const pull = () => serial(async () => {
+    if (!sync.user || !getState) return;
+    set('status', 'syncing');
+    try {
+      pendingPush = false;          // a junção já leva as alterações locais; as que vierem depois voltam a marcar
+      await core.pull();
       sync.ready = true;
       if (sync.onShared) await sync.fetchShared().then(sync.onShared).catch(() => {});
       await syncPhotos();
       sync.lastSync = Date.now(); set('status', 'ok'); set('error', null);
-    } catch (e) {
-      set('error', e.message || String(e)); set('status', navigator.onLine ? 'error' : 'offline');
-    } finally { pulling = false; }
-  }
+    } catch (e) { pendingPush = true; fail(e); }
+  });
 
-  async function push(force) {
+  const push = () => serial(async () => {
     if (!sync.user || !sync.ready || !getState) { pendingPush = true; return; }
-    const s = getState();
-    if (!force && !pendingPush) return;
+    if (!pendingPush) return;
     pendingPush = false;
     set('status', 'syncing');
     try {
-      const { error } = await sb.from('app_state').upsert({ user_id: sync.user.id, state: MF.store.payload(s), updated_at: s.updatedAt || Date.now() });
-      if (error) throw error;
+      await core.push();
       sync.lastSync = Date.now(); set('status', 'ok'); set('error', null);
-    } catch (e) {
-      pendingPush = true;
-      set('error', e.message || String(e)); set('status', navigator.onLine ? 'error' : 'offline');
-    }
-  }
+    } catch (e) { pendingPush = true; fail(e); }
+  });
   sync.schedulePush = () => {
     pendingPush = true;
     if (!sync.user) return;
@@ -198,7 +214,7 @@
     sync.authReady = true;
     const was = sync.user && sync.user.id;
     sync.user = session ? session.user : null;
-    if ((sync.user && sync.user.id) !== was) { sync.ready = false; clearTimeout(pushTimer); }
+    if ((sync.user && sync.user.id) !== was) { sync.ready = false; clearTimeout(pushTimer); core.reset(); }
     if (event === 'PASSWORD_RECOVERY') sync.recovering = true;
     if (!sync.user) {
       sync.ready = false; set('status', 'off');

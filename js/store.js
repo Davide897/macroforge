@@ -39,9 +39,13 @@
       return s;
     },
     save(s) {
-      const j = JSON.stringify(payload(s));
+      let j = JSON.stringify(payload(s));
       const changed = j !== lastPayload;
-      if (changed) { s.updatedAt = Date.now(); lastPayload = j; }
+      if (changed) {
+        // hora de alteração de cada registo que mudou: a sincronização junta registo a registo (ver merge.js)
+        if (MF.merge) { s.clock = MF.merge.stamp(lastPayload ? JSON.parse(lastPayload) : {}, payload(s), s.clock, Date.now(), s.updatedAt || 0); j = JSON.stringify(payload(s)); }
+        s.updatedAt = Date.now(); lastPayload = j;
+      }
       localStorage.setItem(KEY, JSON.stringify(s));
       if (changed && MF.sync && MF.sync.schedulePush) MF.sync.schedulePush();
     },
