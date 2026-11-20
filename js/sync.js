@@ -189,6 +189,11 @@
     if (error) throw error;
     return data;
   };
+  sync.readSupplementLabel = async dataUrl => {
+    const { data, error } = await sb.functions.invoke('label', { body: { image: dataUrl, mode: 'supplement' } });
+    if (error) throw error;
+    return data;
+  };
 
   // ---------- aprovação da conta pelo administrador ----------
   const APPROVED_KEY = 'macroforge.approved';

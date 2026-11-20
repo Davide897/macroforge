@@ -27,6 +27,14 @@ Keys:
 "confidence": 0 to 1.
 Rules: read each row across to its own value (crumpled or tilted labels: follow the line carefully, do not shift rows); dot decimals; energy in kcal, never kJ; Portuguese/Spanish terms: Proteínas=protein, Hidratos de carbono/Glúcidos=carbs, dos quais açúcares=sugars, Lípidos/Gordura/Grasas=fat, saturados=satfat, Fibra=fiber, Sal=salt.`;
 
+const SUPPLEMENT_PROMPT = `Read the supplement package in this photo. Return ONLY one JSON object, no prose, no markdown.
+Report only text that is clearly printed and legible. Never guess or recommend a dose.
+Keys: "product_visible": true/false, "product_name": short product name, "brand": brand or null,
+"serving_size": the serving size exactly as printed (for example "1 scoop (5 g)"),
+"directions": the package directions exactly as printed, or null if not visible,
+"active_ingredients": a short list of ingredient names and printed amounts, or an empty list.
+If this is not a supplement package, set product_visible false. Do not turn the label's directions into personal medical advice.`;
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -99,9 +107,23 @@ function normalize(raw: any) {
   return { food, flags };
 }
 
+function normalizeSupplement(raw: Record<string, unknown>) {
+  const clean = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : '';
+  const active = Array.isArray(raw.active_ingredients)
+    ? raw.active_ingredients.map(x => clean(x, 120)).filter(Boolean).slice(0, 20)
+    : [];
+  return {
+    name: clean(raw.product_name, 80),
+    brand: clean(raw.brand, 60),
+    servingSize: clean(raw.serving_size, 120),
+    directions: clean(raw.directions, 500),
+    activeIngredients: active,
+  };
+}
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function readLabel(dataUrl: string, key: string) {
+async function readLabel(dataUrl: string, key: string, mode: 'food' | 'supplement' = 'food') {
   const tried: string[] = [];
   // deno-lint-ignore no-explicit-any
   let partial: any = null;
@@ -109,8 +131,8 @@ async function readLabel(dataUrl: string, key: string) {
     const body = {
       model, max_tokens: 3000, temperature: 0, reasoning: { enabled: false },
       messages: [
-        { role: 'system', content: 'You read nutrition labels from photos and answer with JSON only.' },
-        { role: 'user', content: [{ type: 'text', text: PROMPT }, { type: 'image_url', image_url: { url: dataUrl } }] },
+        { role: 'system', content: mode === 'supplement' ? 'You read supplement packages from photos and answer with JSON only.' : 'You read nutrition labels from photos and answer with JSON only.' },
+        { role: 'user', content: [{ type: 'text', text: mode === 'supplement' ? SUPPLEMENT_PROMPT : PROMPT }, { type: 'image_url', image_url: { url: dataUrl } }] },
       ],
     };
     // deno-lint-ignore no-explicit-any
@@ -134,6 +156,12 @@ async function readLabel(dataUrl: string, key: string) {
     if (!resp) { tried.push(`${model}: ${err}`); continue; }
     const raw = extractJson(resp.choices?.[0]?.message?.content);
     if (!raw) { tried.push(`${model}: resposta sem JSON`); continue; }
+    if (mode === 'supplement') {
+      if (raw.product_visible === false) return { ok: false, error: 'noProduct', model, tried };
+      const supplement = normalizeSupplement(raw);
+      if (!supplement.name) { tried.push(`${model}: nome do produto não legível`); continue; }
+      return { ok: true, supplement, model, tried };
+    }
     if (raw.table_visible === false) return { ok: false, error: 'noTable', model, tried };
     const { food, flags } = normalize(raw);
     if (flags.includes('missing')) {
@@ -196,5 +224,6 @@ Deno.serve(async (req) => {
   // Quota partilhada do OpenRouter grátis (50 pedidos/dia na conta): limite por pessoa e no total.
   const q = await quota(uid);
   if (!q.ok) return json({ ok: false, error: q.reason || 'quota' });
-  return json(await readLabel(img, key));
+  const mode = body?.mode === 'supplement' ? 'supplement' : 'food';
+  return json(await readLabel(img, key, mode));
 });

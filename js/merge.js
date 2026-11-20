@@ -8,8 +8,8 @@
   const TOMB_MS = 90 * 864e5;   // lápides guardadas 90 dias (um aparelho parado mais tempo pode ressuscitar um registo)
 
   // Coleções guardadas por registo, e como se tira a chave de cada elemento
-  const LISTS = { weights: w => w && w.date, customFoods: f => f && f.id, giFoods: f => f && f.id, photoMeta: p => p && p.id };
-  const MAPS = ['foods', 'dismissed', 'shopChecked', 'photoDeleted', 'diary'];   // diary: uma unidade por entrada (diary:<data>/<id>)
+  const LISTS = { weights: w => w && w.date, customFoods: f => f && f.id, giFoods: f => f && f.id, supplements: f => f && f.id, photoMeta: p => p && p.id };
+  const MAPS = ['foods', 'dismissed', 'shopChecked', 'photoDeleted', 'diary', 'supplementLog'];
   const FIELDS = ['profile'];   // objetos fundidos campo a campo (mudar o objetivo num aparelho e a idade noutro: ficam os dois)
   const SEP = ':';
 

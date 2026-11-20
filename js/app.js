@@ -34,12 +34,13 @@
   };
 
   // ---------------- Shell ----------------
-  const TABS = ['goals', 'foods', 'gi', 'plan', 'diary', 'shop', 'progress'];
-  const TAB_KEY = { goals: 'tabGoals', foods: 'tabFoods', gi: 'tabGI', plan: 'tabPlan', diary: 'tabDiary', shop: 'tabShop', progress: 'tabProgress' };
+  const TABS = ['goals', 'foods', 'gi', 'supplements', 'plan', 'diary', 'shop', 'progress'];
+  const TAB_KEY = { goals: 'tabGoals', foods: 'tabFoods', gi: 'tabGI', supplements: 'tabSupplements', plan: 'tabPlan', diary: 'tabDiary', shop: 'tabShop', progress: 'tabProgress' };
   const TAB_ICON = {
     goals: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
     foods: 'M7 2v9a3 3 0 0 0 2 2.8V22h2v-8.2A3 3 0 0 0 13 11V2h-2v7h-1V2H9v7H8V2zm9 0c-1.7 0-3 2.2-3 5v6h2v9h2V2z',
     gi: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 15H9v-2h2zm0-4H9V7h2zm5 4h-2V9h2z',
+    supplements: 'M8 3a5 5 0 0 0-5 5v8a5 5 0 0 0 5 5h8a5 5 0 0 0 5-5V8a5 5 0 0 0-5-5zm0 2h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zm0 6v2h8v-2z',
     plan: 'M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h10v2H4z',
     diary: 'M6 2h11a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 4v2h8V6zm0 4v2h8v-2zm0 4v2h5v-2z',
     shop: 'M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM3 2h3l2.7 11.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L22 6H7.2L6.6 3.6A2 2 0 0 0 4.7 2z',
@@ -378,6 +379,61 @@
       <p class="muted small gi-source">${t('giSource')} <a href="https://glycemicindex.com/gi-search/" target="_blank" rel="noopener">${S.lang === 'en' ? 'Open GI database' : 'Abrir base de dados GI'}</a></p>
       <p class="muted small">${t('giCaveat')}</p></section>`;
   }
+
+  // ---------------- Suplementos ----------------
+  const SUPP_UNITS = ['mg', 'mcg', 'g', 'ml', 'capsule', 'tablet', 'scoop'];
+  const SUPP_MEALS = ['breakfast', 'morningSnack', 'lunch', 'afternoonSnack', 'dinner', 'supper'];
+  const suppLogKey = (s, slot) => `${today()}/${s.id}/${slot.id}`;
+  const suppUnitLabel = unit => ({ mg: t('suppMg'), mcg: t('suppMcg'), g: t('suppG'), ml: t('suppMl'), capsule: t('suppCapsule'), tablet: t('suppTablet'), scoop: t('suppScoop') }[unit] || unit);
+  function viewSupplements() {
+    const slots = (s, slot) => `<div class="supp-slot">
+      <label>${t('suppDose')}<input type="number" inputmode="decimal" min="0.01" step="any" value="${slot.dose ?? ''}" data-act="suppDose" data-id="${esc(s.id)}" data-slot="${esc(slot.id)}" aria-label="${esc(t('suppDose'))}"></label>
+      <label>${t('suppUnit')}<select data-act="suppUnit" data-id="${esc(s.id)}" data-slot="${esc(slot.id)}">${SUPP_UNITS.map(u => `<option value="${u}" ${slot.unit === u ? 'selected' : ''}>${suppUnitLabel(u)}</option>`).join('')}</select></label>
+      <label>${t('suppMeal')}<select data-act="suppMeal" data-id="${esc(s.id)}" data-slot="${esc(slot.id)}">${SUPP_MEALS.map(m => `<option value="${m}" ${slot.meal === m ? 'selected' : ''}>${t(m)}</option>`).join('')}</select></label>
+      <label>${t('suppTime')}<input type="time" value="${esc(slot.time || '')}" data-act="suppTime" data-id="${esc(s.id)}" data-slot="${esc(slot.id)}"></label>
+      <label class="supp-taken"><input type="checkbox" data-act="suppTaken" data-id="${esc(s.id)}" data-slot="${esc(slot.id)}" ${S.supplementLog[suppLogKey(s, slot)] ? 'checked' : ''}> ${t('suppTaken')}</label>
+      <button class="btn small ghost" data-act="suppDeleteSlot" data-id="${esc(s.id)}" data-slot="${esc(slot.id)}" aria-label="${esc(t('suppDeleteSlot'))}">${ICON.x}</button>
+    </div>`;
+    const cards = (S.supplements || []).map(s => `<article class="card supp-card">
+      <div class="row between wrap gap"><div><h3>${esc(s.name)}${s.brand ? ` <span class="muted">· ${esc(s.brand)}</span>` : ''}</h3>
+        ${s.labelServing ? `<p class="muted small"><b>${t('suppLabelServing')}:</b> ${esc(s.labelServing)}</p>` : ''}
+        ${s.directions ? `<p class="muted small"><b>${t('suppDirections')}:</b> ${esc(s.directions)}</p>` : ''}
+        ${s.activeIngredients?.length ? `<p class="muted small"><b>${t('suppIngredients')}:</b> ${esc(s.activeIngredients.join(', '))}</p>` : ''}</div>
+        <button class="btn small ghost" data-act="suppDelete" data-id="${esc(s.id)}">${t('suppDelete')}</button></div>
+      ${s.slots.length ? s.slots.map(slot => slots(s, slot)).join('') : `<p class="muted small">${t('suppNoDose')}</p>`}
+      <button class="btn small ghost" data-act="suppAddSlot" data-id="${esc(s.id)}">${t('suppAddSlot')}</button>
+    </article>`).join('');
+    return `<section class="card"><h2>${t('suppTitle')}</h2><p class="muted small">${t('suppHelp')}</p>
+      <form id="supplementManualForm" class="row wrap gap supp-add-form">
+        <label>${t('suppName')}<input name="name" required maxlength="80"></label>
+        <label>${t('suppBrand')}<input name="brand" maxlength="60"></label>
+        <button class="btn" type="submit">${t('suppAdd')}</button>
+        <label class="btn ghost supp-photo">${t('suppPhoto')}<input type="file" accept="image/*" capture="environment" class="vh" data-act="supplementPhoto"></label>
+      </form><p class="muted small">${t('suppHelp')}</p></section>
+      <section>${cards || `<div class="card"><p class="muted">${t('suppEmpty')}</p></div>`}</section>`;
+  }
+
+  function readSupplementPhoto(file) {
+    (async () => {
+      if (!SY() || !MF.sync.user) { toast(t('suppNeedLogin')); return; }
+      toast(t('suppPhotoProcessing'));
+      try {
+        const blob = await MF.photos.compress(file, 1600);
+        const dataUrl = await new Promise((resolve, reject) => { const fr = new FileReader(); fr.onload = () => resolve(fr.result); fr.onerror = () => reject(fr.error); fr.readAsDataURL(blob); });
+        const res = await MF.sync.readSupplementLabel(dataUrl);
+        if (!res?.ok) { toast(res?.error === 'notApproved' ? t('suppNeedLogin') : res?.error === 'userLimit' ? t('suppPhotoQuota') : res?.error === 'noProduct' ? t('suppNoProduct') : t('suppPhotoFailed')); return; }
+        const item = res.supplement || (res.food?.name ? { name: res.food.name, brand: '', servingSize: res.food.serving ? `${res.food.serving} g` : '', directions: '', activeIngredients: [] } : null);
+        if (!item?.name) { toast(t('suppPhotoFailed')); return; }
+        const key = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const existing = S.supplements.find(s => key(s.name) === key(item.name) && (!s.brand || !item.brand || key(s.brand) === key(item.brand)));
+        const record = { id: existing?.id || `s_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+          name: item.name, brand: item.brand || existing?.brand || '', labelServing: item.servingSize || '', directions: item.directions || '',
+          activeIngredients: Array.isArray(item.activeIngredients) ? item.activeIngredients.slice(0, 20) : [], slots: existing?.slots || [] };
+        if (existing) S.supplements = S.supplements.map(s => s.id === existing.id ? record : s); else S.supplements.push(record);
+        save(); rerenderView(); toast(t('suppPhotoAdded'));
+      } catch (err) { toast(err?.message?.includes('not found') ? t('suppPhotoFailed') : t('suppPhotoFailed')); }
+    })();
+  }
   // Formulário de alimento (usado no "adicionar à mão" e na revisão da leitura por foto)
   function foodForm(id, v = {}, miss = []) {
     const val = x => (x === undefined || x === null ? '' : esc(x));
@@ -473,6 +529,20 @@
     s.giFoods = (Array.isArray(s.giFoods) ? s.giFoods : []).filter(f => f && SAFE_ID.test(f.id) && typeof f.pt === 'string' && f.pt.length <= 120)
       .map(f => ({ id: f.id, foodId: f.foodId && SAFE_ID.test(f.foodId) ? f.foodId : f.id, pt: f.pt.slice(0, 120), en: String(f.en || f.pt).slice(0, 120), gi: Number.isInteger(f.gi) && f.gi >= 0 && f.gi <= 150 ? f.gi : null,
         detail: String(f.detail || '').slice(0, 300), source: 'https://glycemicindex.com/gi-search/' }));
+    const suppMeals = ['breakfast', 'morningSnack', 'lunch', 'afternoonSnack', 'dinner', 'supper'];
+    const suppUnits = ['mg', 'mcg', 'g', 'ml', 'capsule', 'tablet', 'scoop'];
+    s.supplements = (Array.isArray(s.supplements) ? s.supplements : []).filter(x => x && SAFE_ID.test(x.id) && typeof x.name === 'string' && x.name.trim()).slice(0, 300).map(x => ({
+      id: x.id, name: x.name.trim().slice(0, 80), brand: String(x.brand || '').slice(0, 60),
+      labelServing: String(x.labelServing || '').slice(0, 120), directions: String(x.directions || '').slice(0, 500),
+      activeIngredients: (Array.isArray(x.activeIngredients) ? x.activeIngredients : []).filter(v => typeof v === 'string').slice(0, 20).map(v => v.slice(0, 120)),
+      slots: (Array.isArray(x.slots) ? x.slots : []).filter(q => q && SAFE_ID.test(q.id) && suppMeals.includes(q.meal)).slice(0, 12).map(q => ({
+        id: q.id, dose: num(q.dose, 0.01, 100000), unit: suppUnits.includes(q.unit) ? q.unit : 'mg', meal: q.meal,
+        time: typeof q.time === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(q.time) ? q.time : ''
+      }))
+    }));
+    const suppLog = {};
+    for (const [k, v] of Object.entries(s.supplementLog || {})) if (v === true && /^\d{4}-\d{2}-\d{2}\/[\w.\-]{1,80}\/[\w.\-]{1,80}$/.test(k)) suppLog[k] = true;
+    s.supplementLog = suppLog;
     const foods = {}; for (const [k, v] of Object.entries(s.foods || {})) if (SAFE_ID.test(k)) foods[k] = { like: !!(v && v.like), buy: !!(v && v.buy) };
     s.foods = foods;
     s.photoMeta = (Array.isArray(s.photoMeta) ? s.photoMeta : []).filter(p => p && SAFE_ID.test(p.id) && DATE.test(p.date) && POSES.includes(p.pose));
@@ -1001,7 +1071,7 @@
     } catch (e) { toast(t('importFail')); }
   }
 
-  const VIEWS = { goals: viewGoals, foods: viewFoods, gi: viewGI, plan: viewPlan, diary: viewDiary, shop: viewShop, progress: viewProgress };
+  const VIEWS = { goals: viewGoals, foods: viewFoods, gi: viewGI, supplements: viewSupplements, plan: viewPlan, diary: viewDiary, shop: viewShop, progress: viewProgress };
   const AFTER = { progress: renderPhotos };
 
   // ---------------- Eventos ----------------
@@ -1017,6 +1087,23 @@
     switch (a) {
       case 'tab': S.tab = v; save(); render(); window.scrollTo(0, 0); return;
       case 'gi-sort': giSort = v === 'desc' ? 'desc' : 'asc'; rerenderView(); return;
+      case 'suppAddSlot': {
+        const s = S.supplements.find(x => x.id === id); if (!s) return;
+        s.slots.push({ id: `q_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, dose: null, unit: 'mg', meal: 'breakfast', time: '' });
+        save(); rerenderView(); return;
+      }
+      case 'suppDeleteSlot': {
+        const s = S.supplements.find(x => x.id === id); if (!s) return;
+        s.slots = s.slots.filter(q => q.id !== el.dataset.slot); save(); rerenderView(); return;
+      }
+      case 'suppDelete':
+        ask(t('suppDeleteConfirm'), { ok: t('del'), danger: true }).then(ok => {
+          if (!ok) return;
+          S.supplements = S.supplements.filter(x => x.id !== id);
+          S.supplementLog = Object.fromEntries(Object.entries(S.supplementLog).filter(([k]) => !k.split('/').includes(id)));
+          save(); rerenderView();
+        });
+        return;
       case 'lang': S.lang = v; save(); render(); return;
       case 'theme': S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); render(); return;
       case 'goal': Object.assign(S.profile, { goal: v, protein: null, fat: null, carbs: null, kcalOverride: null }); break;
@@ -1141,6 +1228,22 @@
     const el = e.target, a = el.dataset.act;
     if (el.dataset.bind && el.tagName === 'SELECT') { S.profile[el.dataset.bind] = el.dataset.bind === 'activity' ? +el.value : el.value; save(); $('#results').innerHTML = results(); return; }
     switch (a) {
+      case 'suppDose': case 'suppUnit': case 'suppMeal': case 'suppTime': {
+        const s = S.supplements.find(x => x.id === el.dataset.id), slot = s && s.slots.find(x => x.id === el.dataset.slot);
+        if (!slot) return;
+        if (a === 'suppDose') { const dose = parseFloat(el.value); slot.dose = Number.isFinite(dose) && dose > 0 && dose <= 100000 ? dose : null; }
+        if (a === 'suppUnit' && SUPP_UNITS.includes(el.value)) slot.unit = el.value;
+        if (a === 'suppMeal' && SUPP_MEALS.includes(el.value)) slot.meal = el.value;
+        if (a === 'suppTime') slot.time = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(el.value) ? el.value : '';
+        save(); rerenderView(); return;
+      }
+      case 'suppTaken': {
+        const s = S.supplements.find(x => x.id === el.dataset.id), slot = s && s.slots.find(x => x.id === el.dataset.slot);
+        if (!slot) return;
+        const k = suppLogKey(s, slot);
+        if (el.checked) S.supplementLog[k] = true; else delete S.supplementLog[k];
+        save(); rerenderView(); return;
+      }
       case 'qty': {
         const it = item(el); const v = Math.max(0, parseFloat(el.value) || 0);
         const u = MF.unitsOf(fmap()[it.id]).find(x => x[0] === it.u) || ['g', 1];
@@ -1178,6 +1281,7 @@
         }
         el.value = ''; renderPhotos(); return;
       }
+      case 'supplementPhoto': if (el.files[0]) readSupplementPhoto(el.files[0]); el.value = ''; return;
       case 'cmpPose': S.ui.cmp = { pose: el.value }; save(); renderPhotos(); return;
       case 'cmpA': case 'cmpB': S.ui.cmp = { ...(S.ui.cmp || {}), pose: $('[data-act=cmpPose]').value, [a === 'cmpA' ? 'a' : 'b']: el.value }; save(); renderPhotos(); return;
       case 'import': if (el.files[0]) importAll(el.files[0]); return;
@@ -1189,6 +1293,12 @@
 
   document.addEventListener('submit', e => {
     e.preventDefault();
+    if (e.target.id === 'supplementManualForm') {
+      const fd = new FormData(e.target), name = String(fd.get('name') || '').trim();
+      if (!name) return;
+      S.supplements.push({ id: `s_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: name.slice(0, 80), brand: String(fd.get('brand') || '').trim().slice(0, 60), labelServing: '', directions: '', activeIngredients: [], slots: [] });
+      save(); rerenderView(); toast(t('suppManualAdded')); return;
+    }
     if (e.target.id === 'authForm') {
       const fd = new FormData(e.target), email = fd.get('email').trim(), pw = fd.get('password');
       const up = e.submitter && e.submitter.value === 'up';
