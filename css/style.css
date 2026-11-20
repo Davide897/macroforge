@@ -116,6 +116,14 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .tog { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); }
 .tog.like.on { background: color-mix(in srgb, var(--f) 20%, transparent); border-color: var(--f); color: var(--text); }
 .tog.buy.on { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); color: var(--text); }
+.gi-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 8px; margin-top: 14px; }
+.gi-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); }
+.gi-copy { min-width: 0; } .gi-copy h3 { font-size: 15px; margin: 0 0 4px; } .gi-copy p { margin: 0; }
+.gi-score { flex: 0 0 58px; display: flex; align-items: center; flex-direction: column; font-variant-numeric: tabular-nums; }
+.gi-score b { font-size: 25px; line-height: 1.1; } .gi-tag { display: inline-block; font-size: 11px; font-style: normal; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--line); }
+.gi-tag.low { color: var(--ok); } .gi-tag.medium { color: var(--warn); } .gi-tag.high { color: var(--bad); }
+.gi-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.gi-source { margin-top: 18px; }
 .tag { font-size: 11px; background: var(--line); border-radius: 6px; padding: 1px 6px; color: var(--muted); }
 details summary { cursor: pointer; list-style: none; } details summary::-webkit-details-marker { display: none; }
 details summary::before { content: "+ "; color: var(--accent); font-weight: 800; } details[open] summary::before { content: "− "; }

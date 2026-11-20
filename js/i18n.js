@@ -3,7 +3,8 @@
   const D = {
     pt: {
       tagline: 'Dietas de cut e bulk à tua medida',
-      tabGoals: 'Metas', tabFoods: 'Alimentos', tabPlan: 'Dieta', tabDiary: 'Diário', tabShop: 'Compras', tabProgress: 'Progresso',
+      tabGoals: 'Metas', tabFoods: 'Alimentos', tabGI: 'IG', tabGILong: 'Índice glicémico', tabPlan: 'Dieta', tabDiary: 'Diário', tabShop: 'Compras', tabProgress: 'Progresso',
+      giTitle: 'Índice glicémico dos alimentos', giHelp: 'Valores de referência (escala de glicose = 100). O resultado varia com a variedade, maturação, confeção e processamento.', giSearch: 'Procurar alimento', giLow: 'Baixo', giMedium: 'Médio', giHigh: 'Alto', giRange: 'Valores publicados', giSource: 'Fonte: base de dados internacional da Universidade de Sydney; valores e preparações específicas na ficha original.', giNoResults: 'Não encontrei alimentos com esse nome.', giCaveat: 'O índice glicémico não é uma medida da porção: a resposta de uma refeição também depende da quantidade de hidratos disponíveis e dos outros alimentos.', accNetworkError: 'Não consegui contactar o servidor. Confirma a ligação e tenta outra vez.',
       // Diário alimentar
       diaryTitle: 'Diário alimentar', diaryHelp: 'Regista o que comeste de facto. Cada registo guarda os valores do alimento nesse momento.',
       diaryPrev: 'Dia anterior', diaryNext: 'Dia seguinte', diaryToday: 'Hoje', diaryMine: 'Os teus alimentos',
@@ -57,7 +58,7 @@
       category: 'Categoria', mealsFor: 'Serve para', mB: 'Pequeno-almoço', mM: 'Almoço/jantar', mS: 'Lanche',
       unitG: 'Peso de 1 unidade em g (opcional)', unitName: 'Nome da unidade (ex.: barra)', add: 'Adicionar',
       custom: 'teu', del: 'Apagar', confirmDel: 'Apagar este alimento?', fiberG: 'Fibra (g)',
-      rawNote: 'Carnes, peixe, arroz e massa: pesar cru.',
+      foodWeightNote: 'Carnes, peixe, ovos, cereais e legumes: pesar depois de cozinhar. Fruta, salada e produtos prontos: pesar como são consumidos.', shopWeightNote: 'As quantidades são o peso cozinhado usado no plano, não o peso seco ou cru antes de cozinhar.',
       // Plano
       noFoods: 'Ainda não há alimentos disponíveis. Escolhe o que gostas e o que consegues comprar.',
       goFoods: 'Escolher alimentos', generate: 'Gerar nova dieta', readjust: 'Reajustar quantidades',
@@ -180,7 +181,8 @@
     },
     en: {
       tagline: 'Cut and bulk diets built around you',
-      tabGoals: 'Targets', tabFoods: 'Foods', tabPlan: 'Diet', tabDiary: 'Diary', tabShop: 'Shopping', tabProgress: 'Progress',
+      tabGoals: 'Targets', tabFoods: 'Foods', tabGI: 'GI', tabGILong: 'Glycemic index', tabPlan: 'Diet', tabDiary: 'Diary', tabShop: 'Shopping', tabProgress: 'Progress',
+      giTitle: 'Glycemic index of foods', giHelp: 'Reference values (glucose scale = 100). Values vary with variety, ripeness, cooking and processing.', giSearch: 'Search foods', giLow: 'Low', giMedium: 'Medium', giHigh: 'High', giRange: 'Published values', giSource: 'Source: University of Sydney International GI Database; original records specify the food and preparation.', giNoResults: 'No foods found.', giCaveat: 'Glycemic index is not a serving-size measure: a meal response also depends on available carbohydrate amount and other foods.', accNetworkError: 'Could not contact the server. Check your connection and try again.',
       // Food diary
       diaryTitle: 'Food diary', diaryHelp: 'Log what you actually ate. Each entry keeps the food values from that moment.',
       diaryPrev: 'Previous day', diaryNext: 'Next day', diaryToday: 'Today', diaryMine: 'Your foods',
@@ -231,7 +233,7 @@
       category: 'Category', mealsFor: 'Good for', mB: 'Breakfast', mM: 'Lunch/dinner', mS: 'Snack',
       unitG: 'Weight of 1 unit in g (optional)', unitName: 'Unit name (e.g. bar)', add: 'Add',
       custom: 'yours', del: 'Delete', confirmDel: 'Delete this food?', fiberG: 'Fibre (g)',
-      rawNote: 'Meat, fish, rice and pasta: weigh raw.',
+      foodWeightNote: 'Meat, fish, eggs, grains and vegetables: weigh after cooking. Fruit, salad and ready-to-eat foods: weigh as consumed.', shopWeightNote: 'Amounts are the cooked weights used in the plan, not the dry or raw purchase weights.',
       noFoods: 'No foods available yet. Pick what you like and what you can buy.',
       goFoods: 'Pick foods', generate: 'Generate new diet', readjust: 'Readjust amounts',
       daysVariants: 'Different days', day: 'Day {n}', noPlan: 'Press "Generate new diet".',

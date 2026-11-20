@@ -32,7 +32,7 @@
   sync.updatePassword = password => sb.auth.updateUser({ password });
 
   // ---------- estado ----------
-  let getState = null, pushTimer = null, pendingPush = false;
+  let getState = null, pushTimer = null, retryTimer = null, retryDelay = 2000, pendingPush = false;
   sync.attach = fn => { getState = fn; };
 
   // Junta registo a registo com a versão do servidor e só escreve por cima da versão que juntou (merge.js).
@@ -74,22 +74,36 @@
       if (sync.onShared) await sync.fetchShared().then(sync.onShared).catch(() => {});
       await syncPhotos();
       sync.lastSync = Date.now(); set('status', 'ok'); set('error', null);
-    } catch (e) { pendingPush = true; fail(e); }
+    } catch (e) {
+      pendingPush = true; fail(e);
+      if (sync.user && navigator.onLine) {
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 60000); sync.now(); }, retryDelay);
+      }
+    }
   });
 
   const push = () => serial(async () => {
     if (!sync.user || !sync.ready || !getState) { pendingPush = true; return; }
     if (!pendingPush) return;
     pendingPush = false;
+    clearTimeout(retryTimer); retryTimer = null;
     set('status', 'syncing');
     try {
       await core.push();
+      retryDelay = 2000;
       sync.lastSync = Date.now(); set('status', 'ok'); set('error', null);
-    } catch (e) { pendingPush = true; fail(e); }
+    } catch (e) {
+      pendingPush = true; fail(e);
+      if (sync.user && navigator.onLine) {
+        retryTimer = setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 60000); push(); }, retryDelay);
+      }
+    }
   });
   sync.schedulePush = () => {
     pendingPush = true;
     if (!sync.user) return;
+    clearTimeout(retryTimer); retryTimer = null; retryDelay = 2000;
     clearTimeout(pushTimer); pushTimer = setTimeout(() => push(), 1500);
   };
   sync.now = async () => { await pull(); if (pendingPush) await push(); };
@@ -214,7 +228,7 @@
     sync.authReady = true;
     const was = sync.user && sync.user.id;
     sync.user = session ? session.user : null;
-    if ((sync.user && sync.user.id) !== was) { sync.ready = false; clearTimeout(pushTimer); core.reset(); }
+    if ((sync.user && sync.user.id) !== was) { sync.ready = false; clearTimeout(pushTimer); clearTimeout(retryTimer); retryTimer = null; retryDelay = 2000; core.reset(); }
     if (event === 'PASSWORD_RECOVERY') sync.recovering = true;
     if (!sync.user) {
       sync.ready = false; set('status', 'off');
@@ -235,7 +249,7 @@
       }, 0);
     }
   });
-  window.addEventListener('online', () => sync.user && sync.now());
+  window.addEventListener('online', () => { if (sync.user) { clearTimeout(retryTimer); retryTimer = null; retryDelay = 2000; sync.now(); } });
   document.addEventListener('visibilitychange', () => {
     if (!sync.user) return;
     if (document.visibilityState === 'visible' && (!sync.lastSync || Date.now() - sync.lastSync > 30000)) pull();

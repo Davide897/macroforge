@@ -34,11 +34,12 @@
   };
 
   // ---------------- Shell ----------------
-  const TABS = ['goals', 'foods', 'plan', 'diary', 'shop', 'progress'];
-  const TAB_KEY = { goals: 'tabGoals', foods: 'tabFoods', plan: 'tabPlan', diary: 'tabDiary', shop: 'tabShop', progress: 'tabProgress' };
+  const TABS = ['goals', 'foods', 'gi', 'plan', 'diary', 'shop', 'progress'];
+  const TAB_KEY = { goals: 'tabGoals', foods: 'tabFoods', gi: 'tabGI', plan: 'tabPlan', diary: 'tabDiary', shop: 'tabShop', progress: 'tabProgress' };
   const TAB_ICON = {
     goals: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
     foods: 'M7 2v9a3 3 0 0 0 2 2.8V22h2v-8.2A3 3 0 0 0 13 11V2h-2v7h-1V2H9v7H8V2zm9 0c-1.7 0-3 2.2-3 5v6h2v9h2V2z',
+    gi: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 15H9v-2h2zm0-4H9V7h2zm5 4h-2V9h2z',
     plan: 'M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h10v2H4z',
     diary: 'M6 2h11a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 4v2h8V6zm0 4v2h8v-2zm0 4v2h5v-2z',
     shop: 'M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM3 2h3l2.7 11.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L22 6H7.2L6.6 3.6A2 2 0 0 0 4.7 2z',
@@ -46,7 +47,7 @@
   };
 
   function shell() {
-    const nav = TABS.map(k => `<button class="tab ${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}"${S.tab === k ? ' aria-current="page"' : ''}>
+    const nav = TABS.map(k => `<button class="tab ${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}" aria-label="${esc(t(k === 'gi' ? 'tabGILong' : TAB_KEY[k]))}"${S.tab === k ? ' aria-current="page"' : ''}>
       <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="${TAB_ICON[k]}"/></svg><span>${t(TAB_KEY[k])}</span></button>`).join('');
     return `<header class="top">
       <div class="brand"><div class="logo">M</div><div><h1>MacroForge</h1><p>${t('tagline')}</p></div></div>
@@ -305,7 +306,7 @@
       <div id="labelBox">${labelBox()}</div>
     </section>
     <section class="card">
-      <div class="row between wrap"><div><h2>${t('foodsTitle')}</h2><p class="muted">${t('foodsHelp')} ${t('rawNote')}</p></div>
+      <div class="row between wrap"><div><h2>${t('foodsTitle')}</h2><p class="muted">${t('foodsHelp')} ${t('foodWeightNote')}</p></div>
         <div class="pill big-pill">${t('availableCount', { n: av })}</div></div>
       <div class="row wrap gap">
         <input class="search" type="search" placeholder="${esc(t('search'))}" aria-label="${esc(t('search'))}" value="${esc(foodQuery)}" data-act="search">
@@ -321,6 +322,31 @@
       ${foodForm('customForm')}
 </details>
     </section>`;
+  }
+
+  // ---------------- Índice glicémico ----------------
+  let giQuery = '';
+  function giListHTML() {
+    const q = giQuery.trim().toLocaleLowerCase(S.lang === 'en' ? 'en-GB' : 'pt-PT');
+    const rows = (MF.GLYCEMIC_INDEX || []).filter(row => {
+      const name = S.lang === 'en' ? row.en : row.pt;
+      return !q || `${name} ${row.detail}`.toLocaleLowerCase().includes(q);
+    });
+    const items = rows.map(row => {
+      const level = row.gi <= 55 ? 'low' : row.gi <= 69 ? 'medium' : 'high';
+      const label = t(`gi${level[0].toUpperCase()}${level.slice(1)}`);
+      return `<article class="gi-card"><div class="gi-copy"><h3>${esc(S.lang === 'en' ? row.en : row.pt)}</h3><p class="muted small">${esc(row.detail)}</p></div>
+        <div class="gi-score"><b>${row.gi}</b><span class="gi-tag ${level}">${label}</span></div></article>`;
+    }).join('');
+    return items || `<p class="muted">${t('giNoResults')}</p>`;
+  }
+  function viewGI() {
+    return `<section class="card"><div class="row between wrap gap"><div><h2>${t('giTitle')}</h2><p class="muted small">${t('giHelp')}</p></div>
+      <input class="search" type="search" placeholder="${esc(t('giSearch'))}" aria-label="${esc(t('giSearch'))}" value="${esc(giQuery)}" data-act="gi-search"></div>
+      <div class="gi-legend"><span><i class="gi-tag low">≤55</i> ${t('giLow')}</span><span><i class="gi-tag medium">56–69</i> ${t('giMedium')}</span><span><i class="gi-tag high">≥70</i> ${t('giHigh')}</span></div>
+      <div class="gi-list">${giListHTML()}</div>
+      <p class="muted small gi-source">${t('giSource')} <a href="https://glycemicindex.com/gi-search/" target="_blank" rel="noopener">${S.lang === 'en' ? 'Open GI database' : 'Abrir base de dados GI'}</a></p>
+      <p class="muted small">${t('giCaveat')}</p></section>`;
   }
   // Formulário de alimento (usado no "adicionar à mão" e na revisão da leitura por foto)
   function foodForm(id, v = {}, miss = []) {
@@ -802,7 +828,7 @@
   function viewShop() {
     if (!S.plan) return `<section class="card empty with-img" style="background-image:linear-gradient(rgba(10,14,12,.78),rgba(10,14,12,.9)),url(img/meal-lunch.jpg)"><p>${t('noPlan')}</p><button class="btn" data-act="tab" data-v="plan">${t('tabPlan')}</button></section>`;
     const data = shopData();
-    return `<section class="card"><div class="row between wrap"><div><h2>${t('shopTitle')}</h2><p class="muted">${t('shopHelp')} ${t('rawNote')}</p></div>
+    return `<section class="card"><div class="row between wrap"><div><h2>${t('shopTitle')}</h2><p class="muted">${t('shopHelp')} ${t('shopWeightNote')}</p></div>
       <div class="row gap"><button class="btn" data-act="copyList">${t('copyList')}</button><button class="btn ghost" data-act="resetChecks">${t('resetChecks')}</button></div></div>
       ${data.map(([c, l]) => `<h3 class="cat-h c-${c}"><img class="cat-img" src="${IMG.cat(c)}" alt="" loading="lazy">${t('cat_' + c)}</h3><ul class="shop">${l.map(({ f, g }) => `
         <li class="${S.shopChecked[f.id] ? 'done' : ''}"><label><input type="checkbox" data-act="shopCheck" data-id="${f.id}" ${chk(S.shopChecked[f.id])}>
@@ -942,7 +968,7 @@
     } catch (e) { toast(t('importFail')); }
   }
 
-  const VIEWS = { goals: viewGoals, foods: viewFoods, plan: viewPlan, diary: viewDiary, shop: viewShop, progress: viewProgress };
+  const VIEWS = { goals: viewGoals, foods: viewFoods, gi: viewGI, plan: viewPlan, diary: viewDiary, shop: viewShop, progress: viewProgress };
   const AFTER = { progress: renderPhotos };
 
   // ---------------- Eventos ----------------
@@ -1059,6 +1085,7 @@
   document.addEventListener('input', e => {
     const el = e.target;
     if (el.dataset.act === 'search') { foodQuery = el.value; $('#foodlist').innerHTML = foodList(); return; }
+    if (el.dataset.act === 'gi-search') { giQuery = el.value; $('.gi-list').innerHTML = giListHTML(); return; }
     const k = el.dataset.bind; if (!k) return;
     if (NUM_FIELDS[k]) {
       const v = parseFloat(el.value);
@@ -1133,7 +1160,7 @@
         if (error) return authMsg(error.message);
         if (up && !data.session) return authMsg(t('accCheckEmail'), true);
         toast(t('signedIn'));
-      });
+      }).catch(e => authMsg(e && e.message ? e.message : t('accNetworkError')));
       return;
     }
     if (e.target.id === 'newPwForm') {
