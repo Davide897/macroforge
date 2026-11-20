@@ -12,6 +12,7 @@
     },
     foods: {},          // id -> { like, buy }
     customFoods: [],
+    giFoods: [],
     plan: null, dayIdx: 0,
     weights: [],        // { date, kg, waist, kcal }
     diary: {},          // "<data>/<id>" -> entrada do diário alimentar (diary.js)

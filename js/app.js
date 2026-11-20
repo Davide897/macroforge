@@ -325,14 +325,40 @@
   }
 
   // ---------------- Índice glicémico ----------------
-  let giQuery = '';
+  let giQuery = '', giSort = 'asc';
+  const giNormalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  function addFoodToGI(food) {
+    if (!food) return;
+    S.giFoods = Array.isArray(S.giFoods) ? S.giFoods : [];
+    if (food.cat !== 'carb') {
+      const remaining = S.giFoods.filter(row => row.id !== food.id);
+      if (remaining.length !== S.giFoods.length) { S.giFoods = remaining; save(); }
+      return;
+    }
+    const normalized = giNormalize(S.lang === 'en' ? food.en || food.pt : food.pt);
+    const keys = new Set([normalized]);
+    const match = (MF.GLYCEMIC_INDEX || []).find(row => (row.aliases || []).some(alias => keys.has(giNormalize(alias))));
+    const entry = { id: food.id, pt: food.pt, en: food.en || food.pt, gi: match ? match.gi : null,
+      detail: match ? match.detail : t('giNoVerifiedValue'), source: 'https://glycemicindex.com/gi-search/' };
+    const i = S.giFoods.findIndex(row => row.id === food.id);
+    if (i >= 0) S.giFoods[i] = entry; else S.giFoods.push(entry);
+    save();
+    toast(match ? t('giAddedFound') : t('giAddedUnknown'));
+  }
   function giListHTML() {
     const q = giQuery.trim().toLocaleLowerCase(S.lang === 'en' ? 'en-GB' : 'pt-PT');
-    const rows = (MF.GLYCEMIC_INDEX || []).filter(row => {
+    const customRows = (S.giFoods || []).map(row => ({ ...row, detail: row.detail || t('giNoVerifiedValue') }));
+    const customIds = new Set(customRows.map(row => row.id));
+    const rows = [...(MF.GLYCEMIC_INDEX || []).filter(row => !customIds.has(row.id)), ...customRows].filter(row => {
       const name = S.lang === 'en' ? row.en : row.pt;
       return !q || `${name} ${row.detail}`.toLocaleLowerCase().includes(q);
+    }).sort((a, b) => {
+      if (a.gi == null || b.gi == null) return a.gi == null ? (b.gi == null ? 0 : 1) : -1;
+      return giSort === 'asc' ? a.gi - b.gi : b.gi - a.gi;
     });
     const items = rows.map(row => {
+      if (row.gi == null) return `<article class="gi-card"><div class="gi-copy"><h3>${esc(S.lang === 'en' ? row.en : row.pt)}</h3><p class="muted small">${esc(row.detail)} <a href="${esc(row.source || 'https://glycemicindex.com/gi-search/')}" target="_blank" rel="noopener">${t('giSearchSource')}</a></p></div>
+        <div class="gi-score"><span class="gi-tag">${t('giUnknown')}</span></div></article>`;
       const level = row.gi <= 55 ? 'low' : row.gi <= 69 ? 'medium' : 'high';
       const label = t(`gi${level[0].toUpperCase()}${level.slice(1)}`);
       return `<article class="gi-card"><div class="gi-copy"><h3>${esc(S.lang === 'en' ? row.en : row.pt)}</h3><p class="muted small">${esc(row.detail)}</p></div>
@@ -342,7 +368,7 @@
   }
   function viewGI() {
     return `<section class="card"><div class="row between wrap gap"><div><h2>${t('giTitle')}</h2><p class="muted small">${t('giHelp')}</p></div>
-      <input class="search" type="search" placeholder="${esc(t('giSearch'))}" aria-label="${esc(t('giSearch'))}" value="${esc(giQuery)}" data-act="gi-search"></div>
+      <div class="row wrap gap"><button class="btn small ${giSort === 'asc' ? '' : 'ghost'}" data-act="gi-sort" data-v="asc" aria-pressed="${giSort === 'asc'}">${t('giSortAsc')}</button><button class="btn small ${giSort === 'desc' ? '' : 'ghost'}" data-act="gi-sort" data-v="desc" aria-pressed="${giSort === 'desc'}">${t('giSortDesc')}</button><input class="search" type="search" placeholder="${esc(t('giSearch'))}" aria-label="${esc(t('giSearch'))}" value="${esc(giQuery)}" data-act="gi-search"></div>
       <div class="gi-legend"><span><i class="gi-tag low">≤55</i> ${t('giLow')}</span><span><i class="gi-tag medium">56–69</i> ${t('giMedium')}</span><span><i class="gi-tag high">≥70</i> ${t('giHigh')}</span></div>
       <div class="gi-list">${giListHTML()}</div>
       <p class="muted small gi-source">${t('giSource')} <a href="https://glycemicindex.com/gi-search/" target="_blank" rel="noopener">${S.lang === 'en' ? 'Open GI database' : 'Abrir base de dados GI'}</a></p>
@@ -440,6 +466,9 @@
         if (o.meas) o.meas = (Array.isArray(o.meas) ? o.meas : []).filter(e => Array.isArray(e) && MEAS_KEYS.includes(e[0]) && num(e[1], 0.5, 500)).map(e => [e[0], +e[1]]);
         return o;
       });
+    s.giFoods = (Array.isArray(s.giFoods) ? s.giFoods : []).filter(f => f && SAFE_ID.test(f.id) && typeof f.pt === 'string' && f.pt.length <= 60)
+      .map(f => ({ id: f.id, pt: f.pt, en: String(f.en || f.pt).slice(0, 60), gi: Number.isInteger(f.gi) && f.gi >= 0 && f.gi <= 150 ? f.gi : null,
+        detail: String(f.detail || '').slice(0, 300), source: 'https://glycemicindex.com/gi-search/' }));
     const foods = {}; for (const [k, v] of Object.entries(s.foods || {})) if (SAFE_ID.test(k)) foods[k] = { like: !!(v && v.like), buy: !!(v && v.buy) };
     s.foods = foods;
     s.photoMeta = (Array.isArray(s.photoMeta) ? s.photoMeta : []).filter(p => p && SAFE_ID.test(p.id) && DATE.test(p.date) && POSES.includes(p.pose));
@@ -983,6 +1012,7 @@
     const a = el.dataset.act, v = el.dataset.v, id = el.dataset.id;
     switch (a) {
       case 'tab': S.tab = v; save(); render(); window.scrollTo(0, 0); return;
+      case 'gi-sort': giSort = v === 'desc' ? 'desc' : 'asc'; rerenderView(); return;
       case 'lang': S.lang = v; save(); render(); return;
       case 'theme': S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); render(); return;
       case 'goal': Object.assign(S.profile, { goal: v, protein: null, fat: null, carbs: null, kcalOverride: null }); break;
@@ -998,14 +1028,14 @@
         const f0 = fmap()[id];
         if (!f0 || !f0.mine) return;
         ask(t('confirmDelShared'), { ok: t('del'), danger: true }).then(ok => ok && MF.sync.deleteShared(f0.sid)
-          .then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView(); })
+          .then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); S.giFoods = (S.giFoods || []).filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView(); })
           .catch(() => toast(t('sharedFailed'))));
         return;
       }
       case 'delCustom':
         ask(t('confirmDel'), { ok: t('del'), danger: true }).then(ok => {
           if (!ok) return;
-          S.customFoods = S.customFoods.filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView();
+          S.customFoods = S.customFoods.filter(f => f.id !== id); S.giFoods = (S.giFoods || []).filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView();
         });
         return;
       case 'meals': S.profile.meals = +v; save(); if (S.plan) generate(); else rerenderView(); return;
@@ -1017,7 +1047,9 @@
       case 'remove': S.plan.days[S.dayIdx].meals[+el.dataset.m].items.splice(+el.dataset.i, 1); resolveDay(S.dayIdx); break;
       case 'quickAdd': case 'sugAdd':
         setFood(id, 'like', true); setFood(id, 'buy', true); delete S.dismissed[id];
-        S.pendingNew = (S.pendingNew || 0) + 1; toast(t('sugAdded')); break;
+        S.pendingNew = (S.pendingNew || 0) + 1;
+        if (fmap()[id]?.cat === 'carb') addFoodToGI(fmap()[id]); else toast(t('sugAdded'));
+        break;
       case 'sugDismiss': S.dismissed[id] = true; break;
       case 'undismiss': S.dismissed = {}; break;
       case 'copyList': {
@@ -1073,6 +1105,7 @@
         S.sharedFoods = (S.sharedFoods || []).filter(f => f.id !== LS.savedId);
       }
         S.customFoods = S.customFoods.filter(f => f.id !== LS.savedId); delete S.foods[LS.savedId];
+        S.giFoods = (S.giFoods || []).filter(f => f.id !== LS.savedId);
         S.pendingNew = Math.max(0, (S.pendingNew || 0) - 1); LS = { status: 'idle' }; break;
       default: return;
     }
@@ -1113,13 +1146,14 @@
       case 'swap': {
         if (!el.value) return;
         const it = item(el); const f = fmap()[el.value];
-        Object.assign(it, { id: f.id, g: MF.defaultG(f), locked: false, u: undefined }); resolveDay(S.dayIdx); break;
+        Object.assign(it, { id: f.id, g: MF.defaultG(f), locked: false, u: undefined }); addFoodToGI(f); resolveDay(S.dayIdx); break;
       }
       case 'addFood': {
         if (!el.value) return;
         let fid = el.value;
         if (fid.startsWith('new:')) { fid = fid.slice(4); setFood(fid, 'like', true); setFood(fid, 'buy', true); delete S.dismissed[fid]; }
         const f = fmap()[fid];
+        addFoodToGI(f);
         S.plan.days[S.dayIdx].meals[+el.dataset.m].items.push({ id: f.id, g: MF.defaultG(f) }); resolveDay(S.dayIdx); break;
       }
       case 'diaryDate': if (!MF.diary.DATE.test(el.value)) return; S.ui.diaryDate = el.value; break;
@@ -1192,6 +1226,7 @@
       const isLabel = e.target.id === 'labelForm';
       saveFood(draft, isLabel ? 'label' : 'manual').then(food => {
         if (isLabel) LS = { status: 'done', savedId: food.id, food: LS.food };
+        addFoodToGI(food);
         rerenderView();
       });
     }
