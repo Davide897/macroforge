@@ -331,24 +331,28 @@
     if (!food) return;
     S.giFoods = Array.isArray(S.giFoods) ? S.giFoods : [];
     if (food.cat !== 'carb') {
-      const remaining = S.giFoods.filter(row => row.id !== food.id);
+      const remaining = S.giFoods.filter(row => (row.foodId || row.id) !== food.id);
       if (remaining.length !== S.giFoods.length) { S.giFoods = remaining; save(); }
       return;
     }
     const normalized = giNormalize(S.lang === 'en' ? food.en || food.pt : food.pt);
     const keys = new Set([normalized]);
-    const match = (MF.GLYCEMIC_INDEX || []).find(row => (row.aliases || []).some(alias => keys.has(giNormalize(alias))));
-    const entry = { id: food.id, pt: food.pt, en: food.en || food.pt, gi: match ? match.gi : null,
-      detail: match ? match.detail : t('giNoVerifiedValue'), source: 'https://glycemicindex.com/gi-search/' };
-    const i = S.giFoods.findIndex(row => row.id === food.id);
-    if (i >= 0) S.giFoods[i] = entry; else S.giFoods.push(entry);
+    const matches = (MF.GLYCEMIC_INDEX || []).filter(row => (row.aliases || []).some(alias => keys.has(giNormalize(alias))));
+    const entries = matches.length ? matches.map(row => ({
+      id: matches.length > 1 ? `${food.id}-${row.id}` : food.id, foodId: food.id,
+      pt: (matches.length > 1 ? `${food.pt} — ${row.pt}` : food.pt).slice(0, 120),
+      en: (matches.length > 1 ? `${food.en || food.pt} — ${row.en}` : food.en || food.pt).slice(0, 120),
+      gi: row.gi, detail: row.detail, source: 'https://glycemicindex.com/gi-search/'
+    })) : [{ id: food.id, foodId: food.id, pt: food.pt, en: food.en || food.pt, gi: null,
+      detail: t('giNoVerifiedValue'), source: 'https://glycemicindex.com/gi-search/' }];
+    S.giFoods = S.giFoods.filter(row => (row.foodId || row.id) !== food.id).concat(entries);
     save();
     toast(match ? t('giAddedFound') : t('giAddedUnknown'));
   }
   function giListHTML() {
     const q = giQuery.trim().toLocaleLowerCase(S.lang === 'en' ? 'en-GB' : 'pt-PT');
     const customRows = (S.giFoods || []).map(row => ({ ...row, detail: row.detail || t('giNoVerifiedValue') }));
-    const customIds = new Set(customRows.map(row => row.id));
+    const customIds = new Set(customRows.map(row => row.foodId || row.id));
     const rows = [...(MF.GLYCEMIC_INDEX || []).filter(row => !customIds.has(row.id)), ...customRows].filter(row => {
       const name = S.lang === 'en' ? row.en : row.pt;
       return !q || `${name} ${row.detail}`.toLocaleLowerCase().includes(q);
@@ -466,8 +470,8 @@
         if (o.meas) o.meas = (Array.isArray(o.meas) ? o.meas : []).filter(e => Array.isArray(e) && MEAS_KEYS.includes(e[0]) && num(e[1], 0.5, 500)).map(e => [e[0], +e[1]]);
         return o;
       });
-    s.giFoods = (Array.isArray(s.giFoods) ? s.giFoods : []).filter(f => f && SAFE_ID.test(f.id) && typeof f.pt === 'string' && f.pt.length <= 60)
-      .map(f => ({ id: f.id, pt: f.pt, en: String(f.en || f.pt).slice(0, 60), gi: Number.isInteger(f.gi) && f.gi >= 0 && f.gi <= 150 ? f.gi : null,
+    s.giFoods = (Array.isArray(s.giFoods) ? s.giFoods : []).filter(f => f && SAFE_ID.test(f.id) && typeof f.pt === 'string' && f.pt.length <= 120)
+      .map(f => ({ id: f.id, foodId: f.foodId && SAFE_ID.test(f.foodId) ? f.foodId : f.id, pt: f.pt.slice(0, 120), en: String(f.en || f.pt).slice(0, 120), gi: Number.isInteger(f.gi) && f.gi >= 0 && f.gi <= 150 ? f.gi : null,
         detail: String(f.detail || '').slice(0, 300), source: 'https://glycemicindex.com/gi-search/' }));
     const foods = {}; for (const [k, v] of Object.entries(s.foods || {})) if (SAFE_ID.test(k)) foods[k] = { like: !!(v && v.like), buy: !!(v && v.buy) };
     s.foods = foods;
@@ -1028,14 +1032,14 @@
         const f0 = fmap()[id];
         if (!f0 || !f0.mine) return;
         ask(t('confirmDelShared'), { ok: t('del'), danger: true }).then(ok => ok && MF.sync.deleteShared(f0.sid)
-          .then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); S.giFoods = (S.giFoods || []).filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView(); })
+          .then(() => { S.sharedFoods = S.sharedFoods.filter(f => f.id !== id); S.giFoods = (S.giFoods || []).filter(f => (f.foodId || f.id) !== id); delete S.foods[id]; save(); rerenderView(); })
           .catch(() => toast(t('sharedFailed'))));
         return;
       }
       case 'delCustom':
         ask(t('confirmDel'), { ok: t('del'), danger: true }).then(ok => {
           if (!ok) return;
-          S.customFoods = S.customFoods.filter(f => f.id !== id); S.giFoods = (S.giFoods || []).filter(f => f.id !== id); delete S.foods[id]; save(); rerenderView();
+          S.customFoods = S.customFoods.filter(f => f.id !== id); S.giFoods = (S.giFoods || []).filter(f => (f.foodId || f.id) !== id); delete S.foods[id]; save(); rerenderView();
         });
         return;
       case 'meals': S.profile.meals = +v; save(); if (S.plan) generate(); else rerenderView(); return;
@@ -1105,7 +1109,7 @@
         S.sharedFoods = (S.sharedFoods || []).filter(f => f.id !== LS.savedId);
       }
         S.customFoods = S.customFoods.filter(f => f.id !== LS.savedId); delete S.foods[LS.savedId];
-        S.giFoods = (S.giFoods || []).filter(f => f.id !== LS.savedId);
+        S.giFoods = (S.giFoods || []).filter(f => (f.foodId || f.id) !== LS.savedId);
         S.pendingNew = Math.max(0, (S.pendingNew || 0) - 1); LS = { status: 'idle' }; break;
       default: return;
     }
